@@ -1,5 +1,6 @@
 import { Command, Option, Argument } from "commander";
 import { version } from "../package.json";
+import { fetchIstatDataExcel } from "./istat";
 
 const program = new Command();
 
@@ -31,6 +32,9 @@ program
     "--filename <pattern>",
     "output filename pattern; placeholders: {entity},{date},{ext}",
     "{date}-{entity}.{ext}"
-  );
+  )
+  .action(async function (entity, options) {
+    await fetchIstatDataExcel();
+  });
 
-program.parse();
+program.parseAsync();
