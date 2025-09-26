@@ -9,7 +9,7 @@ export type Region = {
   nuts2_2024?: string;
 };
 
-const REGION_FIELDS: (keyof Region)[] = [
+export const REGION_FIELDS: (keyof Region)[] = [
   "istat_region_code",
   "region_name",
   "geo_partition_code",
