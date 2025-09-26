@@ -1,6 +1,7 @@
 import { Command, Option, Argument } from "commander";
 import { version } from "../package.json";
-import { fetchIstatWorkbook } from "./istat";
+import { buildDataset, fetchIstatWorkbook } from "./istat";
+import { exportData } from "./export";
 
 const program = new Command();
 
@@ -23,7 +24,7 @@ program
     ])
   )
   .addOption(
-    new Option("-f, --format <format...>", "one or more output formats")
+    new Option("-f, --format <format>", "output format")
       .choices(["csv", "json"])
       .makeOptionMandatory(true)
   )
@@ -38,6 +39,14 @@ program
     options
   ) {
     const wb = await fetchIstatWorkbook();
+    const dataSet = buildDataset(wb);
+    await exportData(
+      dataSet,
+      entity,
+      options.format,
+      options.out,
+      options.filename
+    );
   });
 
 program.parseAsync();

@@ -1,5 +1,12 @@
 import * as XLSX from "xlsx";
-import { writeFileSync } from "fs";
+import {
+  Dataset,
+  FieldLegend,
+  Municipality,
+  NoteMap,
+  Province,
+  Region,
+} from "./models";
 const ISTAT_URL_XLSX =
   "https://www.istat.it/storage/codici-unita-amministrative/Elenco-comuni-italiani.xlsx";
 
@@ -46,13 +53,11 @@ export function rawToObjects(ws: XLSX.WorkSheet): Record<string, string>[] {
     const o: Record<string, string> = {};
     for (const [key, value] of Object.entries(row)) {
       const newKey = keyMap[key] ?? key;
-
       // Always string, trim, keep leading zeros
       o[newKey] = (value ?? "").toString().trim();
     }
     return o;
   });
-
 }
 
 function mapHeaderToKey(header: string): string {
@@ -100,4 +105,131 @@ function mapHeaderToKey(header: string): string {
   };
 
   return table[normalizedHeader] ?? normalizedHeader;
+}
+
+function parseNotes(ws: XLSX.WorkSheet): NoteMap {
+  const txt = XLSX.utils.sheet_to_txt(ws);
+  const notes: NoteMap = {};
+
+  for (const line of txt.split(/\r?\n/)) {
+    const m = line.match(/^\s*\((\d+)\)\s*(.+)$/);
+    if (m) notes[m[1]!] = m[2]!.trim();
+  }
+  return notes;
+}
+
+function parseLegend(ws: XLSX.WorkSheet): FieldLegend[] {
+  const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, {
+    defval: "",
+    raw: false,
+  });
+  if (rows.length === 0) return [];
+
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const keyMap: Record<string, string> = {};
+  for (const k of Object.keys(rows[0]!)) {
+    const normalizedKey = norm(k);
+    if (normalizedKey.startsWith("campo")) keyMap[k] = "field";
+    else if (normalizedKey.startsWith("descr")) keyMap[k] = "description";
+    else if (normalizedKey.startsWith("note")) keyMap[k] = "note";
+    else if (normalizedKey.startsWith("anno")) keyMap[k] = "year";
+    else if (normalizedKey.startsWith("fonte")) keyMap[k] = "source";
+    else keyMap[k] = k;
+  }
+  return rows.map((r) => {
+    const out: any = {};
+    for (const [k, v] of Object.entries(r))
+      out[keyMap[k] ?? k] = (v ?? "").toString().trim();
+    return out as FieldLegend;
+  });
+}
+
+export function buildDataset(wb: XLSX.WorkBook): Dataset {
+  const dataWS = getSheet(wb, 0);
+  const objects = rawToObjects(dataWS);
+
+  const notesWS = getSheet(wb, 1);
+  const notes = parseNotes(notesWS);
+
+  const legendWS = getSheet(wb, 2);
+  const legend = parseLegend(legendWS);
+
+  const regionMap = new Map<string, Region>();
+  const provMap = new Map<string, Province>();
+  const municipalities: Municipality[] = [];
+
+  for (const obj of objects) {
+    const region_code = obj["codice_regione"]!;
+    const region_name = obj["denominazione_regione"]!;
+    const rip_code = obj["codice_ripartizione"]!;
+    const rip_name = obj["ripartizione"]!;
+
+    if (region_code && !regionMap.has(region_code)) {
+      regionMap.set(region_code, {
+        istat_region_code: region_code,
+        region_name,
+        geo_partition_code: rip_code,
+        geo_partition_name: rip_name,
+        nuts1_2021: obj["nuts1_2021"] || undefined,
+        nuts2_2021: obj["nuts2_2021"] || undefined,
+        nuts1_2024: obj["nuts1_2024"] || undefined,
+        nuts2_2024: obj["nuts2_2024"] || undefined,
+      });
+    }
+
+    const uts_code = obj["codice_uts"];
+    if (uts_code && !provMap.has(uts_code)) {
+      provMap.set(uts_code, {
+        uts_code,
+        uts_name: obj["denominazione_uts"]!,
+        uts_type: obj["tipologia_uts"]!,
+        car_code: obj["sigla_automobilistica"] || undefined,
+        region_code,
+        region_name,
+        nuts3_2021: obj["nuts3_2021"] || undefined,
+        nuts3_2024: obj["nuts3_2024"] || undefined,
+      });
+    }
+
+    const comune: Municipality = {
+      istat_code_alphanumeric: obj["codice_comune_alfanumerico"]!,
+      istat_code_numeric: obj["codice_comune_numerico"]!,
+      istat_code_numeric_110: obj["codice_comune_numerico_110"] || null,
+      istat_code_numeric_107: obj["codice_comune_numerico_107"] || null,
+      istat_code_numeric_103: obj["codice_comune_numerico_103"] || null,
+      cadastral_code: obj["codice_catastale"] || null,
+      name_it: obj["denominazione_it"] || obj["denominazione_full"] || "",
+      name_alt: obj["denominazione_alt"] || null,
+      is_provincial_capital: obj["flag_capoluogo"] == "0" ? false : true,
+      province_uts_code: uts_code || "",
+      province_code_storico: obj["codice_provincia_storico"] || "",
+      province_progressive: obj["progressivo_comune"] || "",
+      region_code,
+      region_name,
+      nuts3_2021: obj["nuts3_2021"] || null,
+      nuts3_2024: obj["nuts3_2024"] || null,
+    };
+
+    if (comune.istat_code_alphanumeric) {
+      municipalities.push(comune);
+    }
+  }
+
+  const regions = Array.from(regionMap.values()).sort((a, b) =>
+    a.istat_region_code.localeCompare(b.istat_region_code)
+  );
+  const provinces = Array.from(provMap.values()).sort((a, b) =>
+    a.uts_code.localeCompare(b.uts_code)
+  );
+
+  const dataset_date = new Date().toISOString().slice(0, 10);
+
+  return {
+    regions,
+    provinces,
+    municipalities,
+    notes,
+    legend,
+    dataset_date,
+  };
 }

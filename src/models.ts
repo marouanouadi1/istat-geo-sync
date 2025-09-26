@@ -9,7 +9,18 @@ export type Region = {
   nuts2_2024?: string;
 };
 
-export type ProvinceLike = {
+const REGION_FIELDS: (keyof Region)[] = [
+  "istat_region_code",
+  "region_name",
+  "geo_partition_code",
+  "geo_partition_name",
+  "nuts1_2021",
+  "nuts2_2021",
+  "nuts1_2024",
+  "nuts2_2024",
+];
+
+export type Province = {
   uts_code: string;
   uts_name: string;
   uts_type: string;
@@ -19,6 +30,17 @@ export type ProvinceLike = {
   nuts3_2021?: string;
   nuts3_2024?: string;
 };
+
+export const PROVINCE_FIELDS: (keyof Province)[] = [
+  "uts_code",
+  "uts_name",
+  "uts_type",
+  "car_code",
+  "region_code",
+  "region_name",
+  "nuts3_2021",
+  "nuts3_2024",
+];
 
 export type Municipality = {
   istat_code_alphanumeric: string;
@@ -39,6 +61,25 @@ export type Municipality = {
   nuts3_2024?: string | null;
 };
 
+export const MUNICIPALITY_FIELDS: (keyof Municipality)[] = [
+  "istat_code_alphanumeric",
+  "istat_code_numeric",
+  "istat_code_numeric_110",
+  "istat_code_numeric_107",
+  "istat_code_numeric_103",
+  "cadastral_code",
+  "name_it",
+  "name_alt",
+  "is_provincial_capital",
+  "province_uts_code",
+  "province_code_storico",
+  "province_progressive",
+  "region_code",
+  "region_name",
+  "nuts3_2021",
+  "nuts3_2024",
+];
+
 export type FieldLegend = {
   field: string;
   description?: string;
@@ -51,7 +92,7 @@ export type NoteMap = Record<string, string>;
 
 export type Dataset = {
   regions: Region[];
-  provinces: ProvinceLike[];
+  provinces: Province[];
   municipalities: Municipality[];
   notes: NoteMap;
   legend: FieldLegend[];
