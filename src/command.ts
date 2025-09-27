@@ -66,7 +66,7 @@ program
   )
   .action(async function (options) {
     const configPath =
-      options.config ?? path.join(process.cwd(), "istat-geo-sync.config.json");
+      options.config ?? path.join(__dirname, "..", "istat-geo-sync.config.json");
 
     const config = await loadConfig(configPath);
 

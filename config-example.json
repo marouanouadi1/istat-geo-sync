@@ -4,8 +4,6 @@
     "port": 3306,
     "user": "root",
     "password": "",
-    "database": "istat_geo",
-    "connectionLimit": 4,
-    "chunkSize": 250
+    "database": "istat_geo"
   }
 }
