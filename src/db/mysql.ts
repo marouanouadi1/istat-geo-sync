@@ -26,6 +26,7 @@ export async function syncDatasetToMySql(
   const connection = await pool.getConnection();
 
   try {
+    await ensureTablesExist(connection);
     await connection.beginTransaction();
     await upsertRegions(connection, dataset.regions);
     await upsertProvinces(connection, dataset.provinces);
@@ -37,6 +38,55 @@ export async function syncDatasetToMySql(
   } finally {
     connection.release();
     await pool.end();
+  }
+}
+async function ensureTablesExist(connection: mysql.PoolConnection) {
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS \`regions\` (
+      \`istat_region_code\` VARCHAR(32) NOT NULL,
+      \`region_name\` VARCHAR(255) NOT NULL,
+      \`geo_partition_code\` VARCHAR(32) NOT NULL,
+      \`geo_partition_name\` VARCHAR(255) NOT NULL,
+      \`nuts1_2021\` VARCHAR(32) NULL,
+      \`nuts2_2021\` VARCHAR(32) NULL,
+      \`nuts1_2024\` VARCHAR(32) NULL,
+      \`nuts2_2024\` VARCHAR(32) NULL,
+      PRIMARY KEY (\`istat_region_code\`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS \`provinces\` (
+      \`uts_code\` VARCHAR(32) NOT NULL,
+      \`uts_name\` VARCHAR(255) NOT NULL,
+      \`uts_type\` VARCHAR(32) NOT NULL,
+      \`car_code\` VARCHAR(32) NULL,
+      \`region_code\` VARCHAR(32) NOT NULL,
+      \`region_name\` VARCHAR(255) NOT NULL,
+      \`nuts3_2021\` VARCHAR(32) NULL,
+      \`nuts3_2024\` VARCHAR(32) NULL,
+      PRIMARY KEY (\`uts_code\`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS \`municipalities\` (
+      \`istat_code_alphanumeric\` VARCHAR(32) NOT NULL,
+      \`istat_code_numeric\` VARCHAR(32) NOT NULL,
+      \`istat_code_numeric_110\` VARCHAR(32) NULL,
+      \`istat_code_numeric_107\` VARCHAR(32) NULL,
+      \`istat_code_numeric_103\` VARCHAR(32) NULL,
+      \`cadastral_code\` VARCHAR(32) NULL,
+      \`name_it\` VARCHAR(255) NOT NULL,
+      \`name_alt\` VARCHAR(255) NULL,
+      \`is_provincial_capital\` TINYINT(1) NOT NULL,
+      \`province_uts_code\` VARCHAR(32) NOT NULL,
+      \`province_code_storico\` VARCHAR(32) NOT NULL,
+      \`province_progressive\` VARCHAR(32) NOT NULL,
+      \`region_code\` VARCHAR(32) NOT NULL,
+      \`region_name\` VARCHAR(255) NOT NULL,
+      \`nuts3_2021\` VARCHAR(32) NULL,
+      \`nuts3_2024\` VARCHAR(32) NULL,
+      PRIMARY KEY (\`istat_code_alphanumeric\`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+  ];
+
+  for (const statement of statements) {
+    await connection.query(statement);
   }
 }
 
@@ -106,17 +156,27 @@ async function bulkUpsert(
     .map((column) => `\`${column}\` = VALUES(\`${column}\`)`)
     .join(", ");
 
-  const placeholders = rows
-    .map(() => `(${columns.map(() => "?").join(", ")})`)
-    .join(", ");
+  const MAX_PLACEHOLDERS = 65535;
+  const maxRowsPerBatch = Math.max(
+    1,
+    Math.floor(MAX_PLACEHOLDERS / columns.length)
+  );
 
-  const sql =
-    `INSERT INTO \`${table}\` (${columnList}) VALUES ${placeholders} ` +
-    `ON DUPLICATE KEY UPDATE ${updateClause}`;
+  for (let start = 0; start < rows.length; start += maxRowsPerBatch) {
+    const batchRows = rows.slice(start, start + maxRowsPerBatch);
 
-  const values: (any | null)[] = [];
-  for (const row of rows) {
-    values.push(...row);
+    const placeholders = batchRows
+      .map(() => `(${columns.map(() => "?").join(", ")})`)
+      .join(", ");
+
+    const sql =
+      `INSERT INTO \`${table}\` (${columnList}) VALUES ${placeholders} ` +
+      `ON DUPLICATE KEY UPDATE ${updateClause}`;
+
+    const values: (any | null)[] = [];
+    for (const row of batchRows) {
+      values.push(...row);
+    }
+    await connection.execute(sql, values);
   }
-  await connection.execute(sql, values);
 }
