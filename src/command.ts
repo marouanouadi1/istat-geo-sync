@@ -2,6 +2,9 @@ import { Command, Option, Argument } from "commander";
 import { version } from "../package.json";
 import { buildDataset, fetchIstatWorkbook } from "./istat";
 import { exportData } from "./export";
+import path from "path";
+import { loadConfig } from "./config";
+import { syncDatasetToMySql } from "./db/mysql";
 
 const program = new Command();
 
@@ -49,4 +52,51 @@ program
     );
   });
 
+program
+  .command("sync-mysql")
+  .description("Upsert the normalized dataset into a MySQL database")
+  .option("--database <name>", "MySQL database name")
+  .option("--host <host>", "MySQL host")
+  .addOption(new Option("--port <number>", "MySQL port"))
+  .option("--user <user>", "MySQL user")
+  .option("--password <password>", "MySQL password")
+  .option(
+    "--config <path>",
+    "Path to a JSON config file (default: istat-geo-sync.config.json)"
+  )
+  .action(async function (options) {
+    const configPath =
+      options.config ?? path.join(process.cwd(), "istat-geo-sync.config.json");
+
+    const config = await loadConfig(configPath);
+
+    const mysqlConfig = config.mysql;
+
+    const database = options.database ?? mysqlConfig?.database;
+
+    if (!database) {
+      throw new Error(
+        "A MySQL database name is required (use --database, MYSQL_DATABASE, or mysql.database in the config file)."
+      );
+    }
+
+    const host = options.host ?? mysqlConfig?.host ?? "127.0.0.1";
+    const port = options.port ?? mysqlConfig?.port ?? 3306;
+    const user = options.user ?? mysqlConfig?.user ?? "root";
+    const password = options.password ?? mysqlConfig?.password ?? "";
+
+    const wb = await fetchIstatWorkbook();
+    const dataSet = buildDataset(wb);
+
+    await syncDatasetToMySql(
+      {
+        host,
+        port,
+        user,
+        password,
+        database,
+      },
+      dataSet
+    );
+  });
 program.parseAsync();
