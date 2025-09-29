@@ -5,6 +5,7 @@ import { exportData } from "./export";
 import path from "path";
 import { loadConfig } from "./config";
 import { syncDatasetToMySql } from "./db/mysql";
+import { syncDataset } from "./db";
 
 const program = new Command();
 
@@ -66,7 +67,8 @@ program
   )
   .action(async function (options) {
     const configPath =
-      options.config ?? path.join(__dirname, "..", "istat-geo-sync.config.json");
+      options.config ??
+      path.join(__dirname, "..", "istat-geo-sync.config.json");
 
     const config = await loadConfig(configPath);
 
@@ -88,13 +90,16 @@ program
     const wb = await fetchIstatWorkbook();
     const dataSet = buildDataset(wb);
 
-    await syncDatasetToMySql(
+    await syncDataset(
       {
-        host,
-        port,
-        user,
-        password,
-        database,
+        database: "mysql",
+        config: {
+          host,
+          port,
+          user,
+          password,
+          database,
+        },
       },
       dataSet
     );

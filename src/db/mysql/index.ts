@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise";
-import { MySqlConfig } from "../config";
+import { MySqlConfig } from "../../config";
 import {
   Dataset,
   Municipality,
@@ -8,7 +8,9 @@ import {
   PROVINCE_FIELDS,
   Region,
   REGION_FIELDS,
-} from "../models";
+} from "../../models";
+import path from "path";
+import { readFile } from "fs/promises";
 
 export async function syncDatasetToMySql(
   config: MySqlConfig,
@@ -40,54 +42,24 @@ export async function syncDatasetToMySql(
     await pool.end();
   }
 }
+
 async function ensureTablesExist(connection: mysql.PoolConnection) {
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS \`regions\` (
-      \`istat_region_code\` VARCHAR(32) NOT NULL,
-      \`region_name\` VARCHAR(255) NOT NULL,
-      \`geo_partition_code\` VARCHAR(32) NOT NULL,
-      \`geo_partition_name\` VARCHAR(255) NOT NULL,
-      \`nuts1_2021\` VARCHAR(32) NULL,
-      \`nuts2_2021\` VARCHAR(32) NULL,
-      \`nuts1_2024\` VARCHAR(32) NULL,
-      \`nuts2_2024\` VARCHAR(32) NULL,
-      PRIMARY KEY (\`istat_region_code\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
-    `CREATE TABLE IF NOT EXISTS \`provinces\` (
-      \`uts_code\` VARCHAR(32) NOT NULL,
-      \`uts_name\` VARCHAR(255) NOT NULL,
-      \`uts_type\` VARCHAR(32) NOT NULL,
-      \`car_code\` VARCHAR(32) NULL,
-      \`region_code\` VARCHAR(32) NOT NULL,
-      \`region_name\` VARCHAR(255) NOT NULL,
-      \`nuts3_2021\` VARCHAR(32) NULL,
-      \`nuts3_2024\` VARCHAR(32) NULL,
-      PRIMARY KEY (\`uts_code\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
-    `CREATE TABLE IF NOT EXISTS \`municipalities\` (
-      \`istat_code_alphanumeric\` VARCHAR(32) NOT NULL,
-      \`istat_code_numeric\` VARCHAR(32) NOT NULL,
-      \`istat_code_numeric_110\` VARCHAR(32) NULL,
-      \`istat_code_numeric_107\` VARCHAR(32) NULL,
-      \`istat_code_numeric_103\` VARCHAR(32) NULL,
-      \`cadastral_code\` VARCHAR(32) NULL,
-      \`name_it\` VARCHAR(255) NOT NULL,
-      \`name_alt\` VARCHAR(255) NULL,
-      \`is_provincial_capital\` TINYINT(1) NOT NULL,
-      \`province_uts_code\` VARCHAR(32) NOT NULL,
-      \`province_code_storico\` VARCHAR(32) NOT NULL,
-      \`province_progressive\` VARCHAR(32) NOT NULL,
-      \`region_code\` VARCHAR(32) NOT NULL,
-      \`region_name\` VARCHAR(255) NOT NULL,
-      \`nuts3_2021\` VARCHAR(32) NULL,
-      \`nuts3_2024\` VARCHAR(32) NULL,
-      PRIMARY KEY (\`istat_code_alphanumeric\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
-  ];
+  const statements = await loadSchemaStatements();
 
   for (const statement of statements) {
     await connection.query(statement);
   }
+}
+
+async function loadSchemaStatements(): Promise<string[]> {
+  const schemaPath = path.join(__dirname, "schema.sql");
+  const schemaContent = await readFile(schemaPath, "utf8");
+
+  return schemaContent
+    .split(/;\s*(?:\r?\n|$)/)
+    .map((statement) => statement.trim())
+    .filter((statement) => statement.length > 0)
+    .map((statement) => `${statement};`);
 }
 
 async function upsertRegions(
