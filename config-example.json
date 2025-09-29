@@ -5,5 +5,13 @@
     "user": "root",
     "password": "",
     "database": "istat_geo"
+  },
+  "postgres": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "user": "postgres",
+    "password": "",
+    "database": "istat_geo",
+    "ssl": false
   }
 }

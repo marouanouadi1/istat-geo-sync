@@ -1,4 +1,6 @@
-import mysql from "mysql2/promise";
+import path from "path";
+import { SyncOptions } from "..";
+import { DatabaseConfig } from "../../config";
 import {
   Dataset,
   Municipality,
@@ -8,46 +10,43 @@ import {
   Region,
   REGION_FIELDS,
 } from "../../models";
-import path from "path";
+import { Pool, PoolClient } from "pg";
 import { readFile } from "fs/promises";
-import { DatabaseConfig } from "../../config";
-
-export async function syncDatasetToMySql(
+export async function syncDatasetToPostgres(
   config: DatabaseConfig,
   dataset: Dataset
 ): Promise<void> {
-  const pool = mysql.createPool({
+  const pool = new Pool({
     host: config.host,
     port: config.port,
     user: config.user,
     password: config.password,
     database: config.database,
-    waitForConnections: true,
   });
 
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
 
   try {
-    await ensureTablesExist(connection);
-    await connection.beginTransaction();
-    await upsertRegions(connection, dataset.regions);
-    await upsertProvinces(connection, dataset.provinces);
-    await upsertMunicipalities(connection, dataset.municipalities);
-    await connection.commit();
-  } catch (err) {
-    await connection.rollback();
-    throw err;
+    await ensureTablesExist(client);
+    await client.query("BEGIN");
+    await upsertRegions(client, dataset.regions);
+    await upsertProvinces(client, dataset.provinces);
+    await upsertMunicipalities(client, dataset.municipalities);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
-    connection.release();
+    client.release();
     await pool.end();
   }
 }
 
-async function ensureTablesExist(connection: mysql.PoolConnection) {
+async function ensureTablesExist(client: PoolClient): Promise<void> {
   const statements = await loadSchemaStatements();
 
   for (const statement of statements) {
-    await connection.query(statement);
+    await client.query(statement);
   }
 }
 
@@ -63,49 +62,42 @@ async function loadSchemaStatements(): Promise<string[]> {
 }
 
 async function upsertRegions(
-  connection: mysql.PoolConnection,
+  client: PoolClient,
   regions: Region[]
-) {
+): Promise<void> {
   const rows = regions.map((region) =>
     REGION_FIELDS.map((column) => region[column] ?? null)
   );
 
-  await bulkUpsert(
-    connection,
-    "regions",
-    REGION_FIELDS,
-    "istat_region_code",
-    rows
-  );
+  await bulkUpsert(client, "regions", REGION_FIELDS, "istat_region_code", rows);
 }
 
 async function upsertProvinces(
-  connection: mysql.PoolConnection,
+  client: PoolClient,
   provinces: Province[]
-) {
+): Promise<void> {
   const rows = provinces.map((province) =>
     PROVINCE_FIELDS.map((column) => province[column] ?? null)
   );
 
-  await bulkUpsert(connection, "provinces", PROVINCE_FIELDS, "uts_code", rows);
+  await bulkUpsert(client, "provinces", PROVINCE_FIELDS, "uts_code", rows);
 }
 
 async function upsertMunicipalities(
-  connection: mysql.PoolConnection,
+  client: PoolClient,
   municipalities: Municipality[]
-) {
+): Promise<void> {
   const rows = municipalities.map((municipality) =>
     MUNICIPALITY_FIELDS.map((column) => {
-      const value = municipality[column];
       if (column === "is_provincial_capital") {
-        return municipality.is_provincial_capital ? 1 : 0;
+        return Boolean(municipality.is_provincial_capital);
       }
-      return value ?? null;
+      return municipality[column] ?? null;
     })
   );
 
   await bulkUpsert(
-    connection,
+    client,
     "municipalities",
     MUNICIPALITY_FIELDS,
     "istat_code_alphanumeric",
@@ -114,41 +106,44 @@ async function upsertMunicipalities(
 }
 
 async function bulkUpsert(
-  connection: mysql.PoolConnection,
+  client: PoolClient,
   table: string,
   columns: string[],
   primaryKey: string,
   rows: (any | null)[][]
-) {
+): Promise<void> {
   if (rows.length === 0) return;
 
   const updateColumns = columns.filter((column) => column !== primaryKey);
-  const columnList = columns.map((column) => `\`${column}\``).join(", ");
+  const columnList = columns.map((column) => `"${column}"`).join(", ");
   const updateClause = updateColumns
-    .map((column) => `\`${column}\` = VALUES(\`${column}\`)`)
+    .map((column) => `"${column}" = EXCLUDED."${column}"`)
     .join(", ");
 
-  const MAX_PLACEHOLDERS = 65535;
-  const maxRowsPerBatch = Math.max(
-    1,
-    Math.floor(MAX_PLACEHOLDERS / columns.length)
-  );
+  const MAX_PARAMS = 65535;
+  const maxRowsPerBatch = Math.max(1, Math.floor(MAX_PARAMS / columns.length));
 
   for (let start = 0; start < rows.length; start += maxRowsPerBatch) {
     const batchRows = rows.slice(start, start + maxRowsPerBatch);
 
+    const values: (any | null)[] = [];
     const placeholders = batchRows
-      .map(() => `(${columns.map(() => "?").join(", ")})`)
+      .map((row, rowIndex) => {
+        const rowPlaceholders = row
+          .map(
+            (_, columnIndex) =>
+              `$${rowIndex * columns.length + columnIndex + 1}`
+          )
+          .join(", ");
+        values.push(...row);
+        return `(${rowPlaceholders})`;
+      })
       .join(", ");
 
     const sql =
-      `INSERT INTO \`${table}\` (${columnList}) VALUES ${placeholders} ` +
-      `ON DUPLICATE KEY UPDATE ${updateClause}`;
+      `INSERT INTO "${table}" (${columnList}) VALUES ${placeholders} ` +
+      `ON CONFLICT ("${primaryKey}") DO UPDATE SET ${updateClause}`;
 
-    const values: (any | null)[] = [];
-    for (const row of batchRows) {
-      values.push(...row);
-    }
-    await connection.execute(sql, values);
+    await client.query(sql, values);
   }
 }

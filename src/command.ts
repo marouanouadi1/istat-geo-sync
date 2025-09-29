@@ -54,13 +54,14 @@ program
   });
 
 program
-  .command("sync-mysql")
-  .description("Upsert the normalized dataset into a MySQL database")
-  .option("--database <name>", "MySQL database name")
-  .option("--host <host>", "MySQL host")
-  .addOption(new Option("--port <number>", "MySQL port"))
-  .option("--user <user>", "MySQL user")
-  .option("--password <password>", "MySQL password")
+  .command("sync-database")
+  .description("Upsert the normalized dataset into a database")
+  .option("--type <type>", "Database type (mysql or postgres)", "mysql")
+  .option("--database <name>", "Database name")
+  .option("--host <host>", "Database host")
+  .addOption(new Option("--port <number>", "Database port"))
+  .option("--user <user>", "Database user")
+  .option("--password <password>", "Database password")
   .option(
     "--config <path>",
     "Path to a JSON config file (default: istat-geo-sync.config.json)"
@@ -72,27 +73,27 @@ program
 
     const config = await loadConfig(configPath);
 
-    const mysqlConfig = config.mysql;
+    const databaseConfig = config.database;
 
-    const database = options.database ?? mysqlConfig?.database;
+    const database = options.database ?? databaseConfig?.database;
 
     if (!database) {
       throw new Error(
-        "A MySQL database name is required (use --database, MYSQL_DATABASE, or mysql.database in the config file)."
+        "A database name is required (use --database, DATABASE_NAME, or database.name in the config file)."
       );
     }
 
-    const host = options.host ?? mysqlConfig?.host ?? "127.0.0.1";
-    const port = options.port ?? mysqlConfig?.port ?? 3306;
-    const user = options.user ?? mysqlConfig?.user ?? "root";
-    const password = options.password ?? mysqlConfig?.password ?? "";
+    const host = options.host ?? databaseConfig?.host ?? "127.0.0.1";
+    const port = options.port ?? databaseConfig?.port ?? 3306;
+    const user = options.user ?? databaseConfig?.user ?? "root";
+    const password = options.password ?? databaseConfig?.password ?? "";
 
     const wb = await fetchIstatWorkbook();
     const dataSet = buildDataset(wb);
 
     await syncDataset(
       {
-        database: "mysql",
+        database: options.type,
         config: {
           host,
           port,

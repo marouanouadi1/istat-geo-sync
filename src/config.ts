@@ -1,7 +1,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 
-export type MySqlConfig = {
+export type DatabaseConfig = {
   host: string;
   port: number;
   user: string;
@@ -9,7 +9,7 @@ export type MySqlConfig = {
   database: string;
 };
 export type AppConfig = {
-  mysql?: MySqlConfig;
+  database?: DatabaseConfig;
 };
 
 export async function loadConfig(configPath: string): Promise<AppConfig> {
