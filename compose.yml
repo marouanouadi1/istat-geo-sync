@@ -1,4 +1,11 @@
 services:
+  cli:
+    image: node:latest
+    container_name: istat-geo-sync-cli
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - node-modules:/app/node_modules
   postgres:
     image: postgres:latest
     container_name: istat-geo-sync-postgres
@@ -19,12 +26,12 @@ services:
       MYSQL_DATABASE: istat_geo
       MYSQL_USER: istat
       MYSQL_PASSWORD: istat
-    command: ["--default-authentication-plugin=mysql_native_password"]
     ports:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-       
+        
 volumes:
   postgres-data:
   mysql-data:
+  node-modules:
