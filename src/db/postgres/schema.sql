@@ -74,3 +74,19 @@ CREATE INDEX IF NOT EXISTS idx_municipalities_province_uts_code    ON municipali
 CREATE INDEX IF NOT EXISTS idx_municipalities_province_code_storico ON municipalities (province_code_storico);
 CREATE INDEX IF NOT EXISTS idx_municipalities_nuts3_2021           ON municipalities (nuts3_2021);
 CREATE INDEX IF NOT EXISTS idx_municipalities_nuts3_2024           ON municipalities (nuts3_2024);
+
+
+-- LEGEND
+CREATE TABLE IF NOT EXISTS legend (
+  field       varchar(255) PRIMARY KEY,
+  description text,
+  note        varchar(64),
+  year        varchar(32),
+  source      varchar(255)
+);
+
+-- NOTES
+CREATE TABLE IF NOT EXISTS notes (
+  note_id varchar(32) PRIMARY KEY,
+  text    text NOT NULL
+);

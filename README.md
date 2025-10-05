@@ -37,6 +37,14 @@ When you are done, stop the services with:
 docker compose down
 ```
 
+### SQLite support
+
+You can also sync the dataset into a local SQLite database file by running the CLI with `--type sqlite`. The `--database` option (or the corresponding config entry) should point to the SQLite file path. The file is created automatically if it does not exist, and the command reuses the same schema used for MySQL/PostgreSQL.
+
+### Legend and notes exports
+
+Both the file exporter and the SQL sync commands now include the ISTAT legend and notes sheets. Use `legend` or `notes` with the `export` command (or `all` to include everything). Notes are exported as a keyed JSON object or as a CSV table with `note_id` and `text` columns, while legend rows include field metadata such as the description, year, and source.
+
 ### Data source choice (XLSX vs CSV)
 
 By default this project uses the official **XLSX** file rather than the CSV. Parsing XLSX is **~40× slower** in my tests (median **1,027.98 ms** vs **24.70 ms**; **+4062%** parsing-only, 7 runs), but the total runtime stays reasonable for this dataset and XLSX provides **additional sheets** (notes, legend) that I use to enrich/validate the data. Given that the “Comuni” dataset size is relatively stable, I prefer the richer XLSX source over the faster CSV.

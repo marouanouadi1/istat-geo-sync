@@ -88,7 +88,33 @@ export type FieldLegend = {
   source?: string;
 };
 
+export const FIELD_LEGEND_FIELDS: (keyof FieldLegend)[] = [
+  "field",
+  "description",
+  "note",
+  "year",
+  "source",
+];
+
 export type NoteMap = Record<string, string>;
+
+export type NoteEntry = {
+  note_id: string;
+  text: string;
+};
+
+export const NOTE_FIELDS: (keyof NoteEntry)[] = ["note_id", "text"];
+
+export function noteMapToEntries(noteMap: NoteMap): NoteEntry[] {
+  return Object.entries(noteMap)
+    .map(([note_id, text]) => ({
+      note_id,
+      text,
+    }))
+    .sort((a, b) =>
+      a.note_id.localeCompare(b.note_id, "it", { numeric: true })
+    );
+}
 
 export type Dataset = {
   regions: Region[];

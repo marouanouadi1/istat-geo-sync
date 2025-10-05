@@ -13,5 +13,8 @@
     "password": "",
     "database": "istat_geo",
     "ssl": false
+  },
+  "sqlite": {
+    "database": "./istat_geo.sqlite"
   }
 }

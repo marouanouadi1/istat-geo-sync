@@ -1,10 +1,14 @@
 import path from "path";
-import { SyncOptions } from "..";
 import { DatabaseConfig } from "../../config";
 import {
   Dataset,
+  FIELD_LEGEND_FIELDS,
+  FieldLegend,
   Municipality,
   MUNICIPALITY_FIELDS,
+  NOTE_FIELDS,
+  NoteMap,
+  noteMapToEntries,
   Province,
   PROVINCE_FIELDS,
   Region,
@@ -17,10 +21,10 @@ export async function syncDatasetToPostgres(
   dataset: Dataset
 ): Promise<void> {
   const pool = new Pool({
-    host: config.host,
-    port: config.port,
-    user: config.user,
-    password: config.password,
+    host: config.host ?? "127.0.0.1",
+    port: config.port ?? 5432,
+    user: config.user ?? "postgres",
+    password: config.password ?? "",
     database: config.database,
   });
 
@@ -32,6 +36,8 @@ export async function syncDatasetToPostgres(
     await upsertRegions(client, dataset.regions);
     await upsertProvinces(client, dataset.provinces);
     await upsertMunicipalities(client, dataset.municipalities);
+    await upsertLegend(client, dataset.legend);
+    await upsertNotes(client, dataset.notes);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
@@ -103,6 +109,28 @@ async function upsertMunicipalities(
     "istat_code_alphanumeric",
     rows
   );
+}
+
+async function upsertLegend(
+  client: PoolClient,
+  legend: FieldLegend[]
+): Promise<void> {
+  if (legend.length === 0) return;
+  const rows = legend.map((item) =>
+    FIELD_LEGEND_FIELDS.map((column) => item[column] ?? null)
+  );
+
+  await bulkUpsert(client, "legend", FIELD_LEGEND_FIELDS, "field", rows);
+}
+
+async function upsertNotes(client: PoolClient, notes: NoteMap): Promise<void> {
+  const entries = noteMapToEntries(notes);
+  if (entries.length === 0) return;
+  const rows = entries.map((entry) =>
+    NOTE_FIELDS.map((column) => entry[column] ?? null)
+  );
+
+  await bulkUpsert(client, "notes", NOTE_FIELDS, "note_id", rows);
 }
 
 async function bulkUpsert(

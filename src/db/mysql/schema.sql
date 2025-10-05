@@ -59,3 +59,18 @@ CREATE TABLE IF NOT EXISTS `municipalities` (
   CONSTRAINT `fk_municipalities_region` FOREIGN KEY (`region_code`) REFERENCES `regions` (`istat_region_code`) ON UPDATE CASCADE ON DELETE RESTRICT,
   CONSTRAINT `fk_municipalities_province` FOREIGN KEY (`province_uts_code`) REFERENCES `provinces` (`uts_code`) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `legend` (
+  `field` VARCHAR(255) NOT NULL,
+  `description` TEXT NULL,
+  `note` VARCHAR(64) NULL,
+  `year` VARCHAR(32) NULL,
+  `source` VARCHAR(255) NULL,
+  PRIMARY KEY (`field`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `notes` (
+  `note_id` VARCHAR(32) NOT NULL,
+  `text` TEXT NOT NULL,
+  PRIMARY KEY (`note_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

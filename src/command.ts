@@ -4,8 +4,7 @@ import { buildDataset, fetchIstatWorkbook } from "./istat";
 import { exportData } from "./export";
 import path from "path";
 import { loadConfig } from "./config";
-import { syncDatasetToMySql } from "./db/mysql";
-import { syncDataset } from "./db";
+import { DatabaseType, syncDataset } from "./db";
 
 const program = new Command();
 
@@ -56,7 +55,11 @@ program
 program
   .command("sync-database")
   .description("Upsert the normalized dataset into a database")
-  .option("--type <type>", "Database type (mysql or postgres)", "mysql")
+  .option(
+    "--type <type>",
+    "Database type (mysql, postgres, or sqlite)",
+    "mysql"
+  )
   .option("--database <name>", "Database name")
   .option("--host <host>", "Database host")
   .addOption(new Option("--port <number>", "Database port"))
@@ -74,19 +77,29 @@ program
     const config = await loadConfig(configPath);
 
     const databaseConfig = config.database;
+    const type = options.type as DatabaseType;
 
     const database = options.database ?? databaseConfig?.database;
 
     if (!database) {
       throw new Error(
-        "A database name is required (use --database, DATABASE_NAME, or database.name in the config file)."
+        "A database name or file path is required (use --database or provide it in the config file)."
       );
     }
 
-    const host = options.host ?? databaseConfig?.host ?? "127.0.0.1";
-    const port = options.port ?? databaseConfig?.port ?? 3306;
-    const user = options.user ?? databaseConfig?.user ?? "root";
-    const password = options.password ?? databaseConfig?.password ?? "";
+    const defaultHost =
+      type === "postgres" || type === "mysql" ? "127.0.0.1" : undefined;
+    const defaultPort =
+      type === "postgres" ? 5432 : type === "mysql" ? 3306 : undefined;
+    const defaultUser =
+      type === "postgres" ? "postgres" : type === "mysql" ? "root" : undefined;
+    const defaultPassword =
+      type === "postgres" ? "" : type === "mysql" ? "" : undefined;
+
+    const host = options.host ?? defaultHost;
+    const port = options.port ?? defaultPort;
+    const user = options.user ?? defaultUser;
+    const password = options.password ?? defaultPassword;
 
     const wb = await fetchIstatWorkbook();
     const dataSet = buildDataset(wb);

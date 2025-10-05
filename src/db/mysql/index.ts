@@ -1,8 +1,13 @@
 import mysql from "mysql2/promise";
 import {
   Dataset,
+  FIELD_LEGEND_FIELDS,
+  FieldLegend,
   Municipality,
   MUNICIPALITY_FIELDS,
+  NOTE_FIELDS,
+  NoteMap,
+  noteMapToEntries,
   Province,
   PROVINCE_FIELDS,
   Region,
@@ -33,6 +38,8 @@ export async function syncDatasetToMySql(
     await upsertRegions(connection, dataset.regions);
     await upsertProvinces(connection, dataset.provinces);
     await upsertMunicipalities(connection, dataset.municipalities);
+    await upsertLegend(connection, dataset.legend);
+    await upsertNotes(connection, dataset.notes);
     await connection.commit();
   } catch (err) {
     await connection.rollback();
@@ -111,6 +118,28 @@ async function upsertMunicipalities(
     "istat_code_alphanumeric",
     rows
   );
+}
+
+async function upsertLegend(
+  connection: mysql.PoolConnection,
+  legend: FieldLegend[]
+) {
+  if (legend.length === 0) return;
+  const rows = legend.map((item) =>
+    FIELD_LEGEND_FIELDS.map((column) => item[column] ?? null)
+  );
+
+  await bulkUpsert(connection, "legend", FIELD_LEGEND_FIELDS, "field", rows);
+}
+
+async function upsertNotes(connection: mysql.PoolConnection, notes: NoteMap) {
+  const entries = noteMapToEntries(notes);
+  if (entries.length === 0) return;
+  const rows = entries.map((entry) =>
+    NOTE_FIELDS.map((column) => entry[column] ?? null)
+  );
+
+  await bulkUpsert(connection, "notes", NOTE_FIELDS, "note_id", rows);
 }
 
 async function bulkUpsert(
