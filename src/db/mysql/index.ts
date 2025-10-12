@@ -1,21 +1,26 @@
-import mysql from "mysql2/promise";
+import mysql, { RowDataPacket } from "mysql2/promise";
 import {
   Dataset,
-  FIELD_LEGEND_FIELDS,
   FieldLegend,
+  NoteMap,
+  Province,
   Municipality,
+  FIELD_LEGEND_FIELDS,
+  Region,
   MUNICIPALITY_FIELDS,
   NOTE_FIELDS,
-  NoteMap,
-  noteMapToEntries,
-  Province,
   PROVINCE_FIELDS,
-  Region,
   REGION_FIELDS,
 } from "../../models";
-import path from "path";
-import { readFile } from "fs/promises";
 import { DatabaseConfig } from "../../config";
+import {
+  buildLegendRows,
+  buildMunicipalityRows,
+  buildNoteRows,
+  buildProvinceRows,
+  buildRegionRows,
+  loadSchemaStatements,
+} from "../common";
 
 export async function syncDatasetToMySql(
   config: DatabaseConfig,
@@ -66,7 +71,7 @@ export async function syncDatasetToMySql(
 }
 
 async function ensureTablesExist(connection: mysql.PoolConnection) {
-  const statements = await loadSchemaStatements();
+  const statements = await loadSchemaStatements(__dirname);
 
   for (const statement of statements) {
     await connection.query(statement);
@@ -81,11 +86,11 @@ async function shouldSkipSync(
   if (force) return false;
   if (!sourceLastModified) return false;
 
-  const [rows] = await connection.query(
+  const [rows] = await connection.query<RowDataPacket[]>(
     "SELECT `value` FROM `sync_metadata` WHERE `key` = 'source_last_modified' LIMIT 1"
   );
 
-  const current = rows?.[0]?.value ?? null;
+  const current = rows[0]?.value ?? null;
   if (!current) return false;
 
   const storedTime = Date.parse(current);
@@ -123,24 +128,11 @@ async function upsertMetadata(
   );
 }
 
-async function loadSchemaStatements(): Promise<string[]> {
-  const schemaPath = path.join(__dirname, "schema.sql");
-  const schemaContent = await readFile(schemaPath, "utf8");
-
-  return schemaContent
-    .split(/;\s*(?:\r?\n|$)/)
-    .map((statement) => statement.trim())
-    .filter((statement) => statement.length > 0)
-    .map((statement) => `${statement};`);
-}
-
 async function upsertRegions(
   connection: mysql.PoolConnection,
   regions: Region[]
 ) {
-  const rows = regions.map((region) =>
-    REGION_FIELDS.map((column) => region[column] ?? null)
-  );
+  const rows = buildRegionRows(regions);
 
   await bulkUpsert(
     connection,
@@ -155,9 +147,7 @@ async function upsertProvinces(
   connection: mysql.PoolConnection,
   provinces: Province[]
 ) {
-  const rows = provinces.map((province) =>
-    PROVINCE_FIELDS.map((column) => province[column] ?? null)
-  );
+  const rows = buildProvinceRows(provinces);
 
   await bulkUpsert(connection, "provinces", PROVINCE_FIELDS, "uts_code", rows);
 }
@@ -166,15 +156,7 @@ async function upsertMunicipalities(
   connection: mysql.PoolConnection,
   municipalities: Municipality[]
 ) {
-  const rows = municipalities.map((municipality) =>
-    MUNICIPALITY_FIELDS.map((column) => {
-      const value = municipality[column];
-      if (column === "is_provincial_capital") {
-        return municipality.is_provincial_capital ? 1 : 0;
-      }
-      return value ?? null;
-    })
-  );
+  const rows = buildMunicipalityRows(municipalities, { booleanAsNumber: true });
 
   await bulkUpsert(
     connection,
@@ -190,19 +172,14 @@ async function upsertLegend(
   legend: FieldLegend[]
 ) {
   if (legend.length === 0) return;
-  const rows = legend.map((item) =>
-    FIELD_LEGEND_FIELDS.map((column) => item[column] ?? null)
-  );
+  const rows = buildLegendRows(legend);
 
   await bulkUpsert(connection, "legend", FIELD_LEGEND_FIELDS, "field", rows);
 }
 
 async function upsertNotes(connection: mysql.PoolConnection, notes: NoteMap) {
-  const entries = noteMapToEntries(notes);
-  if (entries.length === 0) return;
-  const rows = entries.map((entry) =>
-    NOTE_FIELDS.map((column) => entry[column] ?? null)
-  );
+  const rows = buildNoteRows(notes);
+  if (rows.length === 0) return;
 
   await bulkUpsert(connection, "notes", NOTE_FIELDS, "note_id", rows);
 }

@@ -1,4 +1,3 @@
-import path from "path";
 import { DatabaseConfig } from "../../config";
 import {
   Dataset,
@@ -8,14 +7,20 @@ import {
   MUNICIPALITY_FIELDS,
   NOTE_FIELDS,
   NoteMap,
-  noteMapToEntries,
   Province,
   PROVINCE_FIELDS,
   Region,
   REGION_FIELDS,
 } from "../../models";
 import { Pool, PoolClient } from "pg";
-import { readFile } from "fs/promises";
+import {
+  buildLegendRows,
+  buildMunicipalityRows,
+  buildNoteRows,
+  buildProvinceRows,
+  buildRegionRows,
+  loadSchemaStatements,
+} from "../common";
 export async function syncDatasetToPostgres(
   config: DatabaseConfig,
   dataset: Dataset,
@@ -64,22 +69,11 @@ export async function syncDatasetToPostgres(
 }
 
 async function ensureTablesExist(client: PoolClient): Promise<void> {
-  const statements = await loadSchemaStatements();
+  const statements = await loadSchemaStatements(__dirname);
 
   for (const statement of statements) {
     await client.query(statement);
   }
-}
-
-async function loadSchemaStatements(): Promise<string[]> {
-  const schemaPath = path.join(__dirname, "schema.sql");
-  const schemaContent = await readFile(schemaPath, "utf8");
-
-  return schemaContent
-    .split(/;\s*(?:\r?\n|$)/)
-    .map((statement) => statement.trim())
-    .filter((statement) => statement.length > 0)
-    .map((statement) => `${statement};`);
 }
 
 async function shouldSkipSync(
@@ -133,9 +127,7 @@ async function upsertRegions(
   client: PoolClient,
   regions: Region[]
 ): Promise<void> {
-  const rows = regions.map((region) =>
-    REGION_FIELDS.map((column) => region[column] ?? null)
-  );
+  const rows = buildRegionRows(regions);
 
   await bulkUpsert(client, "regions", REGION_FIELDS, "istat_region_code", rows);
 }
@@ -144,10 +136,7 @@ async function upsertProvinces(
   client: PoolClient,
   provinces: Province[]
 ): Promise<void> {
-  const rows = provinces.map((province) =>
-    PROVINCE_FIELDS.map((column) => province[column] ?? null)
-  );
-
+  const rows = buildProvinceRows(provinces);
   await bulkUpsert(client, "provinces", PROVINCE_FIELDS, "uts_code", rows);
 }
 
@@ -155,14 +144,7 @@ async function upsertMunicipalities(
   client: PoolClient,
   municipalities: Municipality[]
 ): Promise<void> {
-  const rows = municipalities.map((municipality) =>
-    MUNICIPALITY_FIELDS.map((column) => {
-      if (column === "is_provincial_capital") {
-        return Boolean(municipality.is_provincial_capital);
-      }
-      return municipality[column] ?? null;
-    })
-  );
+  const rows = buildMunicipalityRows(municipalities);
 
   await bulkUpsert(
     client,
@@ -178,19 +160,14 @@ async function upsertLegend(
   legend: FieldLegend[]
 ): Promise<void> {
   if (legend.length === 0) return;
-  const rows = legend.map((item) =>
-    FIELD_LEGEND_FIELDS.map((column) => item[column] ?? null)
-  );
+  const rows = buildLegendRows(legend);
 
   await bulkUpsert(client, "legend", FIELD_LEGEND_FIELDS, "field", rows);
 }
 
 async function upsertNotes(client: PoolClient, notes: NoteMap): Promise<void> {
-  const entries = noteMapToEntries(notes);
-  if (entries.length === 0) return;
-  const rows = entries.map((entry) =>
-    NOTE_FIELDS.map((column) => entry[column] ?? null)
-  );
+  const rows = buildNoteRows(notes);
+  if (rows.length === 0) return;
 
   await bulkUpsert(client, "notes", NOTE_FIELDS, "note_id", rows);
 }

@@ -9,16 +9,22 @@ import {
   NOTE_FIELDS,
   PROVINCE_FIELDS,
   REGION_FIELDS,
-  noteMapToEntries,
 } from "../../models";
-
-type Row = (string | number | null)[];
+import {
+  buildLegendRows,
+  buildMunicipalityRows,
+  buildNoteRows,
+  buildProvinceRows,
+  buildRegionRows,
+  loadSchemaStatements,
+  TableRow,
+} from "../common";
 
 type TableConfig = {
   name: string;
   columns: string[];
   primaryKey: string;
-  rows: Row[];
+  rows: TableRow[];
 };
 
 export async function syncDatasetToSqlite(
@@ -33,9 +39,9 @@ export async function syncDatasetToSqlite(
 
   await ensureDirectoryExists(databasePath);
 
-  const schemaStatements = await loadSchemaStatements();
+  const schemaStatements = await loadSchemaStatements(__dirname);
   const tables = buildTableConfigs(dataset);
-  
+
   let skipSync = false;
   const database = new DatabaseSync(databasePath);
   try {
@@ -126,44 +132,12 @@ async function ensureDirectoryExists(databasePath: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
 
-async function loadSchemaStatements(): Promise<string[]> {
-  const schemaPath = path.join(__dirname, "schema.sql");
-  const schemaContent = await fs.readFile(schemaPath, "utf8");
-
-  return schemaContent
-    .split(/;\s*(?:\r?\n|$)/)
-    .map((statement) => statement.trim())
-    .filter((statement) => statement.length > 0)
-    .map((statement) => `${statement};`);
-}
-
 function buildTableConfigs(dataset: Dataset): TableConfig[] {
-  const regionRows: Row[] = dataset.regions.map((region) =>
-    REGION_FIELDS.map((column) => (region[column] ?? null) as string | null)
-  );
-
-  const provinceRows: Row[] = dataset.provinces.map((province) =>
-    PROVINCE_FIELDS.map((column) => (province[column] ?? null) as string | null)
-  );
-
-  const municipalityRows: Row[] = dataset.municipalities.map((municipality) =>
-    MUNICIPALITY_FIELDS.map((column) => {
-      if (column === "is_provincial_capital") {
-        return municipality.is_provincial_capital ? 1 : 0;
-      }
-      const value = municipality[column];
-      return (value ?? null) as string | number | null;
-    })
-  );
-
-  const legendRows: Row[] = dataset.legend.map((item) =>
-    FIELD_LEGEND_FIELDS.map((column) => (item[column] ?? null) as string | null)
-  );
-
-  const noteEntries = noteMapToEntries(dataset.notes);
-  const noteRows: Row[] = noteEntries.map((entry) =>
-    NOTE_FIELDS.map((column) => (entry[column] ?? null) as string | null)
-  );
+  const regionRows = buildRegionRows(dataset.regions);
+  const provinceRows = buildProvinceRows(dataset.provinces);
+  const municipalityRows = buildMunicipalityRows(dataset.municipalities);
+  const legendRows = buildLegendRows(dataset.legend);
+  const noteRows = buildNoteRows(dataset.notes);
 
   return [
     {
@@ -225,8 +199,11 @@ function generateUpsertStatements(table: TableConfig): string[] {
   });
 }
 
-function toSqliteValue(value: string | number | null): string {
+function toSqliteValue(value: string | number | boolean | null): string {
   if (value === null || value === undefined) return "NULL";
+  if (typeof value === "boolean") {
+    return value ? "1" : "0";
+  }
   if (typeof value === "number") {
     return Number.isFinite(value) ? value.toString() : "NULL";
   }
