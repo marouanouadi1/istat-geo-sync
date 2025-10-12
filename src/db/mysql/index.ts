@@ -156,6 +156,8 @@ async function upsertMunicipalities(
   connection: mysql.PoolConnection,
   municipalities: Municipality[]
 ) {
+  // MySQL does not have a native boolean type, so we persist booleans as
+  // numbers to match the TINYINT(1) columns defined in the schema.
   const rows = buildMunicipalityRows(municipalities, { booleanAsNumber: true });
 
   await bulkUpsert(
