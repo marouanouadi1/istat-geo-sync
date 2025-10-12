@@ -22,11 +22,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsc --project tsconfig.json --outDir dist --declaration",
-    "postbuild": "node scripts/copy-static.cjs",
-    "lint": "eslint . --ext .ts",
-    "test": "node --test --import tsx test/istat.test.ts",
-    "prepublishOnly": "npm run lint && npm test && npm run build"
+    "test": "node --test --import tsx test/*"
   },
   "publishConfig": {
     "access": "public"

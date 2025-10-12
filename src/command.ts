@@ -23,6 +23,8 @@ program
       "regions",
       "provinces",
       "municipalities",
+      "legend",
+      "notes",
       "all",
     ])
   )
@@ -38,7 +40,13 @@ program
     "{date}-{entity}.{ext}"
   )
   .action(async function (
-    entity: "regions" | "provinces" | "municipalities" | "all",
+    entity:
+      | "regions"
+      | "provinces"
+      | "municipalities"
+      | "legend"
+      | "notes"
+      | "all",
     options
   ) {
     const { workbook, lastModified } = await fetchIstatWorkbook();

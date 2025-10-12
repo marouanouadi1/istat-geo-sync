@@ -1,7 +1,10 @@
 import path from "path";
 import {
   Dataset,
+  FIELD_LEGEND_FIELDS,
   MUNICIPALITY_FIELDS,
+  NOTE_FIELDS,
+  noteMapToEntries,
   PROVINCE_FIELDS,
   REGION_FIELDS,
 } from "./models";
@@ -21,9 +24,20 @@ function resolveFilename(
     .replace(/\{ext\}/g, ext);
 }
 
+type ExportableEntity = {
+  json: unknown;
+  csv: { data: Record<string, any>[]; fields: string[] };
+};
+
 export async function exportData(
   dataSet: Dataset,
-  entity: "regions" | "provinces" | "municipalities" | "all",
+  entity:
+    | "regions"
+    | "provinces"
+    | "municipalities"
+    | "legend"
+    | "notes"
+    | "all",
   format: ExportFormat,
   outDir: string,
   filenamePattern: string
@@ -31,12 +45,44 @@ export async function exportData(
   await fs.mkdir(outDir, { recursive: true });
   const ext = format === "json" ? "json" : "csv";
 
-  const entityMap = {
-    regions: { data: dataSet.regions, fields: REGION_FIELDS },
-    provinces: { data: dataSet.provinces, fields: PROVINCE_FIELDS },
+  const entityMap: Record<
+    "regions" | "provinces" | "municipalities" | "legend" | "notes",
+    ExportableEntity
+  > = {
+    regions: {
+      json: dataSet.regions,
+      csv: {
+        data: dataSet.regions as Record<string, any>[],
+        fields: REGION_FIELDS as string[],
+      },
+    },
+    provinces: {
+      json: dataSet.provinces,
+      csv: {
+        data: dataSet.provinces as Record<string, any>[],
+        fields: PROVINCE_FIELDS as string[],
+      },
+    },
     municipalities: {
-      data: dataSet.municipalities,
-      fields: MUNICIPALITY_FIELDS,
+      json: dataSet.municipalities,
+      csv: {
+        data: dataSet.municipalities as Record<string, any>[],
+        fields: MUNICIPALITY_FIELDS as string[],
+      },
+    },
+    legend: {
+      json: dataSet.legend,
+      csv: {
+        data: dataSet.legend,
+        fields: FIELD_LEGEND_FIELDS,
+      },
+    },
+    notes: {
+      json: dataSet.notes,
+      csv: {
+        data: noteMapToEntries(dataSet.notes) as Record<string, any>[],
+        fields: NOTE_FIELDS as string[],
+      },
     },
   };
 
@@ -50,9 +96,9 @@ export async function exportData(
     const fullName = path.join(outDir, fileName);
     if (entity === key || entity === "all") {
       if (format === "json") {
-        await fs.writeFile(fullName, JSON.stringify(value, null, 2), "utf8");
+        await fs.writeFile(fullName, JSON.stringify(value.json, null, 2), "utf8");
       } else {
-        const csv = toCsv(value.data as Record<string, any>[], value.fields as string[]);
+        const csv = toCsv(value.csv.data, value.csv.fields);
         await fs.writeFile(fullName, csv, "utf8");
       }
     }
