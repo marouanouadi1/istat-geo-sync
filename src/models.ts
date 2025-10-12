@@ -123,4 +123,5 @@ export type Dataset = {
   notes: NoteMap;
   legend: FieldLegend[];
   dataset_date: string;
+  source_last_modified: string | null;
 };

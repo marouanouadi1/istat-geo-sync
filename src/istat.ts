@@ -10,20 +10,37 @@ import {
 const ISTAT_URL_XLSX =
   "https://www.istat.it/storage/codici-unita-amministrative/Elenco-comuni-italiani.xlsx";
 
-export async function fetchIstatWorkbook(): Promise<XLSX.WorkBook> {
+export type FetchedWorkbook = {
+  workbook: XLSX.WorkBook;
+  lastModified?: string | null;
+};
+
+export async function fetchIstatWorkbook(): Promise<FetchedWorkbook> {
   const res = await fetch(ISTAT_URL_XLSX);
   if (!res.ok) {
     throw new Error(
       `Failed to fetch ISTAT Excel data: ${res.status} ${res.statusText}`
     );
   }
+
+  const lastModifiedHeader = res.headers.get("last-modified");
+  const parsedLastModified = parseLastModifiedHeader(lastModifiedHeader);
+
   const arrayBuffer = await res.arrayBuffer();
-  return XLSX.read(arrayBuffer, {
+  const workbook = XLSX.read(arrayBuffer, {
     type: "array",
     cellDates: false,
     cellText: false,
     raw: false,
   });
+  return { workbook, lastModified: parsedLastModified };
+}
+
+function parseLastModifiedHeader(value: string | null): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return null;
+  return parsed.toISOString();
 }
 
 export function getSheet(
@@ -144,7 +161,10 @@ function parseLegend(ws: XLSX.WorkSheet): FieldLegend[] {
   });
 }
 
-export function buildDataset(wb: XLSX.WorkBook): Dataset {
+export function buildDataset(
+  wb: XLSX.WorkBook,
+  options?: { sourceLastModified?: string | null }
+): Dataset {
   const dataWS = getSheet(wb, 0);
   const objects = rawToObjects(dataWS);
 
@@ -222,8 +242,7 @@ export function buildDataset(wb: XLSX.WorkBook): Dataset {
     a.uts_code.localeCompare(b.uts_code)
   );
 
-  const dataset_date = new Date().toISOString().slice(0, 10);
-
+  const dataset_date = deriveDatasetDate(options?.sourceLastModified);
   return {
     regions,
     provinces,
@@ -231,5 +250,16 @@ export function buildDataset(wb: XLSX.WorkBook): Dataset {
     notes,
     legend,
     dataset_date,
+    source_last_modified: options?.sourceLastModified ?? null,
   };
+}
+
+function deriveDatasetDate(sourceLastModified?: string | null): string {
+  if (sourceLastModified) {
+    const parsed = new Date(sourceLastModified);
+    if (!Number.isNaN(parsed.valueOf())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+  return new Date().toISOString().slice(0, 10);
 }

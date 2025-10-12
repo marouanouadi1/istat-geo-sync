@@ -1,76 +1,88 @@
-CREATE TABLE IF NOT EXISTS `regions` (
-  `istat_region_code` VARCHAR(32) NOT NULL,
-  `region_name` VARCHAR(255) NOT NULL,
-  `geo_partition_code` VARCHAR(32) NOT NULL,
-  `geo_partition_name` VARCHAR(255) NOT NULL,
-  `nuts1_2021` VARCHAR(32) NULL,
-  `nuts2_2021` VARCHAR(32) NULL,
-  `nuts1_2024` VARCHAR(32) NULL,
-  `nuts2_2024` VARCHAR(32) NULL,
-  PRIMARY KEY (`istat_region_code`),
-  KEY `idx_regions_geo_partition_code` (`geo_partition_code`),
-  KEY `idx_regions_nuts1_2021` (`nuts1_2021`),
-  KEY `idx_regions_nuts2_2021` (`nuts2_2021`),
-  KEY `idx_regions_nuts1_2024` (`nuts1_2024`),
-  KEY `idx_regions_nuts2_2024` (`nuts2_2024`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE
+  IF NOT EXISTS `regions` (
+    `istat_region_code` VARCHAR(32) NOT NULL,
+    `region_name` VARCHAR(255) NOT NULL,
+    `geo_partition_code` VARCHAR(32) NOT NULL,
+    `geo_partition_name` VARCHAR(255) NOT NULL,
+    `nuts1_2021` VARCHAR(32) NULL,
+    `nuts2_2021` VARCHAR(32) NULL,
+    `nuts1_2024` VARCHAR(32) NULL,
+    `nuts2_2024` VARCHAR(32) NULL,
+    PRIMARY KEY (`istat_region_code`),
+    KEY `idx_regions_geo_partition_code` (`geo_partition_code`),
+    KEY `idx_regions_nuts1_2021` (`nuts1_2021`),
+    KEY `idx_regions_nuts2_2021` (`nuts2_2021`),
+    KEY `idx_regions_nuts1_2024` (`nuts1_2024`),
+    KEY `idx_regions_nuts2_2024` (`nuts2_2024`)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `provinces` (
-  `uts_code` VARCHAR(32) NOT NULL,
-  `uts_name` VARCHAR(255) NOT NULL,
-  `uts_type` VARCHAR(32) NOT NULL,
-  `car_code` VARCHAR(32) NULL,
-  `region_code` VARCHAR(32) NOT NULL,
-  `region_name` VARCHAR(255) NOT NULL,
-  `nuts3_2021` VARCHAR(32) NULL,
-  `nuts3_2024` VARCHAR(32) NULL,
-  PRIMARY KEY (`uts_code`),
-  KEY `idx_provinces_region_code` (`region_code`),
-  KEY `idx_provinces_car_code` (`car_code`),
-  KEY `idx_provinces_nuts3_2021` (`nuts3_2021`),
-  KEY `idx_provinces_nuts3_2024` (`nuts3_2024`),
-  CONSTRAINT `fk_provinces_region` FOREIGN KEY (`region_code`) REFERENCES `regions` (`istat_region_code`) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE
+  IF NOT EXISTS `provinces` (
+    `uts_code` VARCHAR(32) NOT NULL,
+    `uts_name` VARCHAR(255) NOT NULL,
+    `uts_type` VARCHAR(32) NOT NULL,
+    `car_code` VARCHAR(32) NULL,
+    `region_code` VARCHAR(32) NOT NULL,
+    `region_name` VARCHAR(255) NOT NULL,
+    `nuts3_2021` VARCHAR(32) NULL,
+    `nuts3_2024` VARCHAR(32) NULL,
+    PRIMARY KEY (`uts_code`),
+    KEY `idx_provinces_region_code` (`region_code`),
+    KEY `idx_provinces_car_code` (`car_code`),
+    KEY `idx_provinces_nuts3_2021` (`nuts3_2021`),
+    KEY `idx_provinces_nuts3_2024` (`nuts3_2024`),
+    CONSTRAINT `fk_provinces_region` FOREIGN KEY (`region_code`) REFERENCES `regions` (`istat_region_code`) ON UPDATE CASCADE ON DELETE RESTRICT
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `municipalities` (
-  `istat_code_alphanumeric` VARCHAR(32) NOT NULL,
-  `istat_code_numeric` VARCHAR(32) NOT NULL,
-  `istat_code_numeric_110` VARCHAR(32) NULL,
-  `istat_code_numeric_107` VARCHAR(32) NULL,
-  `istat_code_numeric_103` VARCHAR(32) NULL,
-  `cadastral_code` VARCHAR(32) NULL,
-  `name_it` VARCHAR(255) NOT NULL,
-  `name_alt` VARCHAR(255) NULL,
-  `is_provincial_capital` TINYINT(1) NOT NULL,
-  `province_uts_code` VARCHAR(32) NOT NULL,
-  `province_code_storico` VARCHAR(32) NOT NULL,
-  `province_progressive` VARCHAR(32) NOT NULL,
-  `region_code` VARCHAR(32) NOT NULL,
-  `region_name` VARCHAR(255) NOT NULL,
-  `nuts3_2021` VARCHAR(32) NULL,
-  `nuts3_2024` VARCHAR(32) NULL,
-  PRIMARY KEY (`istat_code_alphanumeric`),
-  KEY `idx_municipalities_istat_code_numeric` (`istat_code_numeric`),
-  KEY `idx_municipalities_region_code` (`region_code`),
-  KEY `idx_municipalities_province_uts_code` (`province_uts_code`),
-  KEY `idx_municipalities_province_code_storico` (`province_code_storico`),
-  KEY `idx_municipalities_nuts3_2021` (`nuts3_2021`),
-  KEY `idx_municipalities_nuts3_2024` (`nuts3_2024`),
-  CONSTRAINT `fk_municipalities_region` FOREIGN KEY (`region_code`) REFERENCES `regions` (`istat_region_code`) ON UPDATE CASCADE ON DELETE RESTRICT,
-  CONSTRAINT `fk_municipalities_province` FOREIGN KEY (`province_uts_code`) REFERENCES `provinces` (`uts_code`) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE
+  IF NOT EXISTS `municipalities` (
+    `istat_code_alphanumeric` VARCHAR(32) NOT NULL,
+    `istat_code_numeric` VARCHAR(32) NOT NULL,
+    `istat_code_numeric_110` VARCHAR(32) NULL,
+    `istat_code_numeric_107` VARCHAR(32) NULL,
+    `istat_code_numeric_103` VARCHAR(32) NULL,
+    `cadastral_code` VARCHAR(32) NULL,
+    `name_it` VARCHAR(255) NOT NULL,
+    `name_alt` VARCHAR(255) NULL,
+    `is_provincial_capital` TINYINT (1) NOT NULL,
+    `province_uts_code` VARCHAR(32) NOT NULL,
+    `province_code_storico` VARCHAR(32) NOT NULL,
+    `province_progressive` VARCHAR(32) NOT NULL,
+    `region_code` VARCHAR(32) NOT NULL,
+    `region_name` VARCHAR(255) NOT NULL,
+    `nuts3_2021` VARCHAR(32) NULL,
+    `nuts3_2024` VARCHAR(32) NULL,
+    PRIMARY KEY (`istat_code_alphanumeric`),
+    KEY `idx_municipalities_istat_code_numeric` (`istat_code_numeric`),
+    KEY `idx_municipalities_region_code` (`region_code`),
+    KEY `idx_municipalities_province_uts_code` (`province_uts_code`),
+    KEY `idx_municipalities_province_code_storico` (`province_code_storico`),
+    KEY `idx_municipalities_nuts3_2021` (`nuts3_2021`),
+    KEY `idx_municipalities_nuts3_2024` (`nuts3_2024`),
+    CONSTRAINT `fk_municipalities_region` FOREIGN KEY (`region_code`) REFERENCES `regions` (`istat_region_code`) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT `fk_municipalities_province` FOREIGN KEY (`province_uts_code`) REFERENCES `provinces` (`uts_code`) ON UPDATE CASCADE ON DELETE RESTRICT
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `legend` (
-  `field` VARCHAR(255) NOT NULL,
-  `description` TEXT NULL,
-  `note` VARCHAR(64) NULL,
-  `year` VARCHAR(32) NULL,
-  `source` VARCHAR(255) NULL,
-  PRIMARY KEY (`field`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE
+  IF NOT EXISTS `legend` (
+    `field` VARCHAR(255) NOT NULL,
+    `description` TEXT NULL,
+    `note` VARCHAR(64) NULL,
+    `year` VARCHAR(32) NULL,
+    `source` VARCHAR(255) NULL,
+    PRIMARY KEY (`field`)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `notes` (
-  `note_id` VARCHAR(32) NOT NULL,
-  `text` TEXT NOT NULL,
-  PRIMARY KEY (`note_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE
+  IF NOT EXISTS `notes` (
+    `note_id` VARCHAR(32) NOT NULL,
+    `text` TEXT NOT NULL,
+    PRIMARY KEY (`note_id`)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE
+  IF NOT EXISTS `sync_metadata` (
+    `key` VARCHAR(64) NOT NULL,
+    `value` VARCHAR(255) NOT NULL,
+    PRIMARY KEY (`key`)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;

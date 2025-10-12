@@ -8,6 +8,7 @@ export type DatabaseType = "mysql" | "postgres" | "sqlite";
 export type SyncOptions = {
   database: DatabaseType;
   config: DatabaseConfig;
+  force?: boolean;
 };
 
 export async function syncDataset(
@@ -15,11 +16,11 @@ export async function syncDataset(
   dataset: Dataset
 ): Promise<void> {
   if (options.database === "mysql") {
-    return syncDatasetToMySql(options.config, dataset);
+    return syncDatasetToMySql(options.config, dataset, options.force);
   } else if (options.database === "postgres") {
-    return syncDatasetToPostgres(options.config, dataset);
+    return syncDatasetToPostgres(options.config, dataset, options.force);
   } else if (options.database === "sqlite") {
-    return syncDatasetToSqlite(options.config, dataset);
+    return syncDatasetToSqlite(options.config, dataset, options.force);
   }
   throw new Error(`Unsupported database type: ${options.database}`);
 }

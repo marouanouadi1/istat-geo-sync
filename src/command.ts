@@ -41,8 +41,10 @@ program
     entity: "regions" | "provinces" | "municipalities" | "all",
     options
   ) {
-    const wb = await fetchIstatWorkbook();
-    const dataSet = buildDataset(wb);
+    const { workbook, lastModified } = await fetchIstatWorkbook();
+    const dataSet = buildDataset(workbook, {
+      sourceLastModified: lastModified,
+    });
     await exportData(
       dataSet,
       entity,
@@ -68,6 +70,10 @@ program
   .option(
     "--config <path>",
     "Path to a JSON config file (default: istat-geo-sync.config.json)"
+  )
+  .option(
+    "--force",
+    "Force synchronization even if the remote dataset has not changed"
   )
   .action(async function (options) {
     const configPath =
@@ -101,8 +107,10 @@ program
     const user = options.user ?? defaultUser;
     const password = options.password ?? defaultPassword;
 
-    const wb = await fetchIstatWorkbook();
-    const dataSet = buildDataset(wb);
+    const { workbook, lastModified } = await fetchIstatWorkbook();
+    const dataSet = buildDataset(workbook, {
+      sourceLastModified: lastModified,
+    });
 
     await syncDataset(
       {
@@ -114,6 +122,7 @@ program
           password,
           database,
         },
+        force: Boolean(options.force),
       },
       dataSet
     );

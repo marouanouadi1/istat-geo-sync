@@ -23,7 +23,8 @@ type TableConfig = {
 
 export async function syncDatasetToSqlite(
   config: DatabaseConfig,
-  dataset: Dataset
+  dataset: Dataset,
+  force?: boolean
 ): Promise<void> {
   const databasePath = config.database;
   if (!databasePath) {
@@ -34,6 +35,50 @@ export async function syncDatasetToSqlite(
 
   const schemaStatements = await loadSchemaStatements();
   const tables = buildTableConfigs(dataset);
+  
+  let skipSync = false;
+  const database = new DatabaseSync(databasePath);
+  try {
+    database.exec("PRAGMA foreign_keys = ON;");
+    if (!force && dataset.source_last_modified) {
+      try {
+        const statement = database.prepare(
+          'SELECT value FROM "sync_metadata" WHERE "key" = ? LIMIT 1'
+        );
+        const row = statement.get("source_last_modified") as
+          | { value?: unknown }
+          | undefined;
+        const current =
+          typeof row?.value === "string" ? (row.value as string) : null;
+        if (current) {
+          const storedTime = Date.parse(current);
+          const incomingTime = Date.parse(dataset.source_last_modified);
+          if (
+            !Number.isNaN(storedTime) &&
+            !Number.isNaN(incomingTime) &&
+            storedTime >= incomingTime
+          ) {
+            skipSync = true;
+          }
+        }
+      } catch (error) {
+        if (!isMissingTableError(error)) {
+          throw error;
+        }
+      }
+    }
+  } finally {
+    database.close();
+  }
+
+  if (skipSync) {
+    console.log(
+      `SQLite dataset already up-to-date (Last-Modified: ${
+        dataset.source_last_modified ?? "unknown"
+      }). Use --force to override.`
+    );
+    return;
+  }
 
   const scriptParts: string[] = [
     "PRAGMA foreign_keys = ON;",
@@ -45,10 +90,33 @@ export async function syncDatasetToSqlite(
     scriptParts.push(...generateUpsertStatements(table));
   }
 
+  scriptParts.push(
+    buildMetadataUpsertStatement("last_sync_at", new Date().toISOString())
+  );
+  if (dataset.source_last_modified) {
+    scriptParts.push(
+      buildMetadataUpsertStatement(
+        "source_last_modified",
+        dataset.source_last_modified
+      )
+    );
+  }
+
   scriptParts.push("COMMIT;");
 
   const script = scriptParts.join("\n") + "\n";
   await runSqliteScript(databasePath, script);
+}
+
+function buildMetadataUpsertStatement(key: string, value: string): string {
+  const escapedValue = value.replace(/'/g, "''");
+  return (
+    `INSERT INTO "sync_metadata" ("key", "value") VALUES ('${key.replace(
+      /'/g,
+      "''"
+    )}', '${escapedValue}') ` +
+    'ON CONFLICT("key") DO UPDATE SET "value" = excluded."value";'
+  );
 }
 
 async function ensureDirectoryExists(databasePath: string): Promise<void> {
@@ -176,4 +244,8 @@ async function runSqliteScript(
   } finally {
     database.close();
   }
+}
+
+function isMissingTableError(error: unknown): boolean {
+  return error instanceof Error && /no such table/i.test(error.message ?? "");
 }

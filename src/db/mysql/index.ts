@@ -19,7 +19,8 @@ import { DatabaseConfig } from "../../config";
 
 export async function syncDatasetToMySql(
   config: DatabaseConfig,
-  dataset: Dataset
+  dataset: Dataset,
+  force?: boolean
 ): Promise<void> {
   const pool = mysql.createPool({
     host: config.host,
@@ -34,12 +35,26 @@ export async function syncDatasetToMySql(
 
   try {
     await ensureTablesExist(connection);
+    const skipSync = await shouldSkipSync(
+      connection,
+      dataset.source_last_modified,
+      force
+    );
+    if (skipSync) {
+      console.log(
+        `MySQL dataset already up-to-date (Last-Modified: ${
+          dataset.source_last_modified ?? "unknown"
+        }). Use --force to override.`
+      );
+      return;
+    }
     await connection.beginTransaction();
     await upsertRegions(connection, dataset.regions);
     await upsertProvinces(connection, dataset.provinces);
     await upsertMunicipalities(connection, dataset.municipalities);
     await upsertLegend(connection, dataset.legend);
     await upsertNotes(connection, dataset.notes);
+    await updateSyncMetadata(connection, dataset.source_last_modified);
     await connection.commit();
   } catch (err) {
     await connection.rollback();
@@ -56,6 +71,56 @@ async function ensureTablesExist(connection: mysql.PoolConnection) {
   for (const statement of statements) {
     await connection.query(statement);
   }
+}
+
+async function shouldSkipSync(
+  connection: mysql.PoolConnection,
+  sourceLastModified: string | null,
+  force?: boolean
+): Promise<boolean> {
+  if (force) return false;
+  if (!sourceLastModified) return false;
+
+  const [rows] = await connection.query(
+    "SELECT `value` FROM `sync_metadata` WHERE `key` = 'source_last_modified' LIMIT 1"
+  );
+
+  const current = rows?.[0]?.value ?? null;
+  if (!current) return false;
+
+  const storedTime = Date.parse(current);
+  const incomingTime = Date.parse(sourceLastModified);
+  if (Number.isNaN(storedTime) || Number.isNaN(incomingTime)) return false;
+
+  return storedTime >= incomingTime;
+}
+
+async function updateSyncMetadata(
+  connection: mysql.PoolConnection,
+  sourceLastModified: string | null
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+
+  await upsertMetadata(connection, "last_sync_at", nowIso);
+  if (sourceLastModified) {
+    await upsertMetadata(
+      connection,
+      "source_last_modified",
+      sourceLastModified
+    );
+  }
+}
+
+async function upsertMetadata(
+  connection: mysql.PoolConnection,
+  key: string,
+  value: string
+): Promise<void> {
+  await connection.query(
+    "INSERT INTO `sync_metadata` (`key`, `value`) VALUES (?, ?) " +
+      "ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)",
+    [key, value]
+  );
 }
 
 async function loadSchemaStatements(): Promise<string[]> {

@@ -18,7 +18,8 @@ import { Pool, PoolClient } from "pg";
 import { readFile } from "fs/promises";
 export async function syncDatasetToPostgres(
   config: DatabaseConfig,
-  dataset: Dataset
+  dataset: Dataset,
+  force?: boolean
 ): Promise<void> {
   const pool = new Pool({
     host: config.host ?? "127.0.0.1",
@@ -32,12 +33,26 @@ export async function syncDatasetToPostgres(
 
   try {
     await ensureTablesExist(client);
+    const skipSync = await shouldSkipSync(
+      client,
+      dataset.source_last_modified,
+      force
+    );
+    if (skipSync) {
+      console.log(
+        `PostgreSQL dataset already up-to-date (Last-Modified: ${
+          dataset.source_last_modified ?? "unknown"
+        }). Use --force to override.`
+      );
+      return;
+    }
     await client.query("BEGIN");
     await upsertRegions(client, dataset.regions);
     await upsertProvinces(client, dataset.provinces);
     await upsertMunicipalities(client, dataset.municipalities);
     await upsertLegend(client, dataset.legend);
     await upsertNotes(client, dataset.notes);
+    await updateSyncMetadata(client, dataset.source_last_modified);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
@@ -65,6 +80,53 @@ async function loadSchemaStatements(): Promise<string[]> {
     .map((statement) => statement.trim())
     .filter((statement) => statement.length > 0)
     .map((statement) => `${statement};`);
+}
+
+async function shouldSkipSync(
+  client: PoolClient,
+  sourceLastModified: string | null,
+  force?: boolean
+): Promise<boolean> {
+  if (force) return false;
+  if (!sourceLastModified) return false;
+
+  const result = await client.query<{ value: string | null }>(
+    'SELECT value FROM "sync_metadata" WHERE "key" = $1 LIMIT 1',
+    ["source_last_modified"]
+  );
+
+  const current = result.rows?.[0]?.value ?? null;
+  if (!current) return false;
+
+  const storedTime = Date.parse(current);
+  const incomingTime = Date.parse(sourceLastModified);
+  if (Number.isNaN(storedTime) || Number.isNaN(incomingTime)) return false;
+
+  return storedTime >= incomingTime;
+}
+
+async function updateSyncMetadata(
+  client: PoolClient,
+  sourceLastModified: string | null
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+
+  await upsertMetadata(client, "last_sync_at", nowIso);
+  if (sourceLastModified) {
+    await upsertMetadata(client, "source_last_modified", sourceLastModified);
+  }
+}
+
+async function upsertMetadata(
+  client: PoolClient,
+  key: string,
+  value: string
+): Promise<void> {
+  await client.query(
+    'INSERT INTO "sync_metadata" ("key", "value") VALUES ($1, $2) ' +
+      'ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value"',
+    [key, value]
+  );
 }
 
 async function upsertRegions(
