@@ -2,6 +2,35 @@
   "name": "istat-geo-sync",
   "version": "0.1.0",
   "description": "Sync/export ISTAT geographic datasets (Regions/Provinces/Municipalities)",
+  "keywords": [
+    "istat",
+    "italy",
+    "geospatial",
+    "cli",
+    "dataset",
+    "municipalities"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marouanouadi1/istat-geo-sync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/marouanouadi1/istat-geo-sync/issues"
+  },
+  "homepage": "https://github.com/marouanouadi1/istat-geo-sync#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json --outDir dist --declaration",
+    "postbuild": "node scripts/copy-static.cjs",
+    "lint": "eslint . --ext .ts",
+    "test": "node --test --import tsx test/istat.test.ts",
+    "prepublishOnly": "npm run lint && npm test && npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@types/node": "^24.5.2",
@@ -12,9 +41,6 @@
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.0"
-  },
-  "scripts": {
-    "test": "node --test --import tsx test/istat.test.ts"
   },
   "dependencies": {
     "commander": "^14.0.1",
