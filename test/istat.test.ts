@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import * as XLSX from "xlsx";
 
-import { buildDataset, rawToObjects } from "../src/istat";
+import { buildDataset, fetchIstatWorkbook, rawToObjects } from "../src/istat";
 
 test("rawToObjects normalizes headers and trims values", () => {
   const ws = XLSX.utils.aoa_to_sheet([
@@ -193,4 +196,171 @@ test("buildDataset aggregates regions, provinces and municipalities", () => {
   ]);
 
   assert.match(dataset.dataset_date, /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test("fetchIstatWorkbook caches responses and reuses conditional headers", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "istat-cache-test-"));
+  const originalCacheDir = process.env.ISTAT_GEO_SYNC_CACHE_DIR;
+  process.env.ISTAT_GEO_SYNC_CACHE_DIR = tmpRoot;
+
+  const originalFetch = globalThis.fetch;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Codice"],
+      ["01"],
+    ]),
+    "Elenco"
+  );
+
+  const workbookBuffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    type: "array",
+  }) as ArrayBuffer;
+
+  const httpDate = "Tue, 02 Jan 2024 03:04:05 GMT";
+  const responses = [
+    new Response(workbookBuffer, {
+      status: 200,
+      headers: {
+        "Last-Modified": httpDate,
+        ETag: '"etag-value"',
+      },
+    }),
+    new Response(null, {
+      status: 304,
+      headers: {
+        "Last-Modified": httpDate,
+        ETag: '"etag-value"',
+      },
+    }),
+  ];
+
+  const requests: Array<Record<string, string>> = [];
+
+  const stubFetch: typeof fetch = async (_input, init) => {
+    const headers = new Headers(init?.headers ?? {});
+    const headerMap: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      headerMap[key] = value;
+    });
+    requests.push(headerMap);
+
+    const response = responses.shift();
+    if (!response) {
+      throw new Error("Unexpected fetch call");
+    }
+    return response;
+  };
+
+  globalThis.fetch = stubFetch;
+
+  try {
+    const first = await fetchIstatWorkbook();
+    assert.equal(requests[0]?.["if-modified-since"], undefined);
+    assert.equal(first.lastModified, new Date(httpDate).toISOString());
+
+    const second = await fetchIstatWorkbook();
+    assert.equal(requests[1]?.["if-modified-since"], httpDate);
+    assert.equal(requests[1]?.["if-none-match"], '"etag-value"');
+
+    const sheetName = second.workbook.SheetNames[0]!;
+    const secondSheet = second.workbook.Sheets[sheetName]!;
+    const rows = XLSX.utils.sheet_to_json(secondSheet, { header: 1 });
+    assert.deepStrictEqual(rows, [
+      ["Codice"],
+      ["01"],
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCacheDir === undefined) delete process.env.ISTAT_GEO_SYNC_CACHE_DIR;
+    else process.env.ISTAT_GEO_SYNC_CACHE_DIR = originalCacheDir;
+    await rm(tmpRoot, { recursive: true, force: true });
+  }
+});
+
+test("fetchIstatWorkbook refetches when cache is missing but server returns 304", async () => {
+  const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "istat-cache-test-"));
+  const originalCacheDir = process.env.ISTAT_GEO_SYNC_CACHE_DIR;
+  process.env.ISTAT_GEO_SYNC_CACHE_DIR = tmpRoot;
+
+  const originalFetch = globalThis.fetch;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Codice"],
+      ["01"],
+    ]),
+    "Elenco"
+  );
+
+  const workbookBuffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    type: "array",
+  }) as ArrayBuffer;
+
+  const httpDate = "Tue, 02 Jan 2024 03:04:05 GMT";
+  const responses = [
+    new Response(null, {
+      status: 304,
+      headers: {
+        "Last-Modified": httpDate,
+        ETag: '"etag-value"',
+      },
+    }),
+    new Response(workbookBuffer, {
+      status: 200,
+      headers: {
+        "Last-Modified": httpDate,
+        ETag: '"etag-value"',
+      },
+    }),
+  ];
+
+  const requests: Array<Record<string, string>> = [];
+
+  const stubFetch: typeof fetch = async (_input, init) => {
+    const headers = new Headers(init?.headers ?? {});
+    const headerMap: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      headerMap[key] = value;
+    });
+    requests.push(headerMap);
+
+    const response = responses.shift();
+    if (!response) {
+      throw new Error("Unexpected fetch call");
+    }
+    return response;
+  };
+
+  globalThis.fetch = stubFetch;
+
+  try {
+    const result = await fetchIstatWorkbook();
+
+    assert.equal(requests.length, 2);
+    assert.equal(requests[0]?.["if-modified-since"], undefined);
+    assert.equal(requests[0]?.["if-none-match"], undefined);
+    assert.equal(requests[1]?.["if-modified-since"], undefined);
+    assert.equal(requests[1]?.["if-none-match"], undefined);
+    assert.equal(result.lastModified, new Date(httpDate).toISOString());
+
+    const sheetName = result.workbook.SheetNames[0]!;
+    const sheet = result.workbook.Sheets[sheetName]!;
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    assert.deepStrictEqual(rows, [
+      ["Codice"],
+      ["01"],
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCacheDir === undefined) delete process.env.ISTAT_GEO_SYNC_CACHE_DIR;
+    else process.env.ISTAT_GEO_SYNC_CACHE_DIR = originalCacheDir;
+    await rm(tmpRoot, { recursive: true, force: true });
+  }
 });
