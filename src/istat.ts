@@ -7,6 +7,9 @@ import {
   Province,
   Region,
 } from "./models";
+import os from "os";
+import { access, mkdir, readFile, rm, writeFile } from "fs/promises";
+import path from "path";
 const ISTAT_URL_XLSX =
   "https://www.istat.it/storage/codici-unita-amministrative/Elenco-comuni-italiani.xlsx";
 
@@ -16,7 +19,51 @@ export type FetchedWorkbook = {
 };
 
 export async function fetchIstatWorkbook(): Promise<FetchedWorkbook> {
-  const res = await fetch(ISTAT_URL_XLSX);
+  const cachePaths = getCachePaths();
+  let metadata = await loadCacheMetadata(cachePaths);
+  const hasCachedWorkbook = await pathExists(cachePaths.workbook);
+
+  if (!hasCachedWorkbook) metadata = null;
+
+  const headers: Record<string, string> = {};
+  if (metadata?.lastModifiedHeader)
+    headers["If-Modified-Since"] = metadata.lastModifiedHeader;
+  if (metadata?.etag) headers["If-None-Match"] = metadata.etag;
+
+  const requestInit: RequestInit =
+    Object.keys(headers).length > 0 ? { headers } : {};
+
+  let res = await fetch(ISTAT_URL_XLSX, requestInit);
+
+  if (res.status === 304) {
+    if (hasCachedWorkbook) {
+      const cachedData = await readFile(cachePaths.workbook);
+      const lastModifiedHeader =
+        res.headers.get("last-modified") ??
+        metadata?.lastModifiedHeader ??
+        null;
+      const etag = res.headers.get("etag") ?? metadata?.etag ?? null;
+
+      try {
+        await saveCacheMetadata(cachePaths, {
+          lastModifiedHeader: lastModifiedHeader ?? undefined,
+          etag: etag ?? undefined,
+        });
+      } catch {
+        // Ignore cache persistence errors.
+      }
+
+      const workbook = parseWorkbookData(cachedData);
+      return {
+        workbook,
+        lastModified: parseLastModifiedHeader(lastModifiedHeader),
+      };
+    }
+
+    // Cached workbook missing: refetch without conditional headers.
+    res = await fetch(ISTAT_URL_XLSX);
+  }
+
   if (!res.ok) {
     throw new Error(
       `Failed to fetch ISTAT Excel data: ${res.status} ${res.statusText}`
@@ -24,16 +71,25 @@ export async function fetchIstatWorkbook(): Promise<FetchedWorkbook> {
   }
 
   const lastModifiedHeader = res.headers.get("last-modified");
-  const parsedLastModified = parseLastModifiedHeader(lastModifiedHeader);
+  const etag = res.headers.get("etag");
 
   const arrayBuffer = await res.arrayBuffer();
-  const workbook = XLSX.read(arrayBuffer, {
-    type: "array",
-    cellDates: false,
-    cellText: false,
-    raw: false,
-  });
-  return { workbook, lastModified: parsedLastModified };
+  const bytes = new Uint8Array(arrayBuffer);
+  const workbook = parseWorkbookData(bytes);
+
+  try {
+    await saveCache(cachePaths, bytes, {
+      lastModifiedHeader: lastModifiedHeader ?? undefined,
+      etag: etag ?? undefined,
+    });
+  } catch {
+    // Ignore cache persistence errors.
+  }
+
+  return {
+    workbook,
+    lastModified: parseLastModifiedHeader(lastModifiedHeader),
+  };
 }
 
 function parseLastModifiedHeader(value: string | null): string | null {
@@ -75,6 +131,104 @@ export function rawToObjects(ws: XLSX.WorkSheet): Record<string, string>[] {
     }
     return o;
   });
+}
+
+type CachePaths = {
+  dir: string;
+  workbook: string;
+  metadata: string;
+};
+
+type CacheMetadata = {
+  lastModifiedHeader?: string;
+  etag?: string;
+};
+
+function parseWorkbookData(data: ArrayBuffer | Uint8Array): XLSX.WorkBook {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  return XLSX.read(bytes, {
+    type: "array",
+    cellDates: false,
+    cellText: false,
+    raw: false,
+  });
+}
+
+function getCachePaths(): CachePaths {
+  const baseDir = getCacheBaseDir();
+  const dir = path.join(baseDir, "istat-geo-sync");
+  return {
+    dir,
+    workbook: path.join(dir, "Elenco-comuni-italiani.xlsx"),
+    metadata: path.join(dir, "Elenco-comuni-italiani.json"),
+  };
+}
+
+function getCacheBaseDir(): string {
+  const override = process.env.ISTAT_GEO_SYNC_CACHE_DIR;
+  if (override) return override;
+
+  if (process.platform === "win32") {
+    return (
+      process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local")
+    );
+  }
+
+  const xdgCache = process.env.XDG_CACHE_HOME;
+  if (xdgCache) return xdgCache;
+
+  return path.join(os.homedir(), ".cache");
+}
+
+async function loadCacheMetadata(
+  paths: CachePaths
+): Promise<CacheMetadata | null> {
+  try {
+    const raw = await readFile(paths.metadata, "utf8");
+    const parsed = JSON.parse(raw) as CacheMetadata;
+    return parsed;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function saveCache(
+  paths: CachePaths,
+  workbookBytes: Uint8Array,
+  metadata: CacheMetadata
+): Promise<void> {
+  await mkdir(paths.dir, { recursive: true });
+  await writeFile(paths.workbook, workbookBytes);
+  await saveCacheMetadata(paths, metadata);
+}
+
+async function saveCacheMetadata(
+  paths: CachePaths,
+  metadata: CacheMetadata
+): Promise<void> {
+  const sanitized: CacheMetadata = {};
+  if (metadata.lastModifiedHeader)
+    sanitized.lastModifiedHeader = metadata.lastModifiedHeader;
+  if (metadata.etag) sanitized.etag = metadata.etag;
+
+  if (Object.keys(sanitized).length === 0) {
+    await rm(paths.metadata, { force: true });
+    return;
+  }
+
+  await mkdir(paths.dir, { recursive: true });
+  await writeFile(paths.metadata, JSON.stringify(sanitized, null, 2), "utf8");
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    if (err?.code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 function mapHeaderToKey(header: string): string {
