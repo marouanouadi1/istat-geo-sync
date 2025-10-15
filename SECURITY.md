@@ -45,20 +45,26 @@ When using this package:
 ## Known Security Considerations
 
 ### Database Credentials
+
 This package connects to databases and requires credentials. Always:
+
 - Use environment variables or config files with restricted permissions
 - Never hardcode credentials
 - Use read-only database users when only exporting data
 - Implement proper access controls on configuration files
 
 ### SQLite Files
+
 When using SQLite:
+
 - Set appropriate file permissions (e.g., `chmod 600`)
 - Store database files outside the web root
 - Be aware of file path traversal risks when accepting user input for database paths
 
 ### XLSX Parsing
+
 The package parses XLSX files from ISTAT. While we use the well-maintained `xlsx` library:
+
 - Be aware of potential parsing vulnerabilities
 - Keep the `xlsx` dependency updated
 - Consider validating downloaded files against known checksums
@@ -66,6 +72,7 @@ The package parses XLSX files from ISTAT. While we use the well-maintained `xlsx
 ## Automated Security
 
 This repository uses:
+
 - **Dependabot**: Automatic dependency updates
 - **CodeQL**: Static code analysis for security vulnerabilities
 - **npm audit**: Regular vulnerability scanning

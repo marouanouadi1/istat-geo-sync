@@ -14,7 +14,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/marouanouadi1/istat-geo-sync.git"
+    "url": "git+https://github.com/marouanouadi1/istat-geo-sync.git"
   },
   "bugs": {
     "url": "https://github.com/marouanouadi1/istat-geo-sync/issues"
@@ -26,7 +26,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "istat-geo-sync": "./dist/command.js"
+    "istat-geo-sync": "dist/command.js"
   },
   "files": [
     "dist",

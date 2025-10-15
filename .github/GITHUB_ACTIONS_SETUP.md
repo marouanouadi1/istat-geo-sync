@@ -35,26 +35,34 @@ This document explains how to configure GitHub Actions for automated publishing 
 The repository includes these workflows:
 
 ### 1. **CI Workflow** (`.github/workflows/ci.yml`)
+
 Runs on every push and pull request:
+
 - Runs tests on multiple Node.js versions
 - Performs type checking
 - Runs linter
 - Builds the project
 
 ### 2. **Publish Workflow** (`.github/workflows/publish.yml`)
+
 Triggers when you create a GitHub Release:
+
 - Installs dependencies
 - Runs tests and type checking
 - Builds the project
 - Publishes to npm with provenance
 
 ### 3. **CodeQL Workflow** (`.github/workflows/codeql.yml`)
+
 Security analysis:
+
 - Runs weekly and on every push/PR
 - Scans for security vulnerabilities
 
 ### 4. **Dependency Review** (`.github/workflows/dependency-review.yml`)
+
 Reviews dependencies in PRs:
+
 - Checks for known vulnerabilities
 - Alerts on moderate+ severity issues
 
@@ -63,6 +71,7 @@ Reviews dependencies in PRs:
 ### Manual Process
 
 1. **Update version** in `package.json`:
+
    ```bash
    npm version patch  # for bug fixes (0.1.0 → 0.1.1)
    npm version minor  # for new features (0.1.0 → 0.2.0)
@@ -72,11 +81,13 @@ Reviews dependencies in PRs:
 2. **Update CHANGELOG.md** with release notes
 
 3. **Commit and push** the version bump:
+
    ```bash
    git push && git push --tags
    ```
 
 4. **Create a GitHub Release**:
+
    - Go to your GitHub repository
    - Click **Releases** → **Draft a new release**
    - Select the tag (e.g., `v0.1.1`)
@@ -111,11 +122,13 @@ gh release create v0.1.1 \
 
 After the GitHub Action completes:
 
-1. **Check GitHub Actions**: 
+1. **Check GitHub Actions**:
+
    - Go to **Actions** tab in your repository
    - Verify the "Publish Package to npmjs" workflow succeeded
 
 2. **Check npm**:
+
    ```bash
    npm view istat-geo-sync version
    ```
@@ -137,20 +150,24 @@ The repository includes Dependabot (`.github/dependabot.yml`) for automatic depe
 ## Troubleshooting
 
 ### "npm ERR! need auth" or "npm ERR! code E401"
+
 - Verify `NPM_TOKEN` secret is correctly set in GitHub
 - Ensure the token has publish permissions
 - Check if the token has expired (tokens have a 90-day limit as of Oct 2025)
 
 ### "npm ERR! 403 Forbidden"
+
 - Verify you have publish permissions for the package
 - For scoped packages, ensure `publishConfig.access` is set to `"public"` in `package.json`
 
 ### Workflow doesn't trigger
+
 - Ensure you're creating a **Release**, not just a tag
 - Check if the workflow file syntax is correct
 - Look at the Actions tab for error messages
 
 ### Provenance fails
+
 - Ensure the repository has proper permissions
 - Verify `id-token: write` permission is set in the workflow
 
