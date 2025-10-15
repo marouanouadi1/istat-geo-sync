@@ -37,16 +37,19 @@ npm install istat-geo-sync
 ### CLI Usage
 
 Export municipalities to JSON:
+
 ```bash
 istat-geo-sync export municipalities --format json --out ./data
 ```
 
 Export all entities to CSV:
+
 ```bash
 istat-geo-sync export all --format csv --out ./exports
 ```
 
 Sync to PostgreSQL:
+
 ```bash
 istat-geo-sync sync-database \
   --type postgres \
@@ -58,6 +61,7 @@ istat-geo-sync sync-database \
 ```
 
 Sync to SQLite:
+
 ```bash
 istat-geo-sync sync-database \
   --type sqlite \
@@ -67,26 +71,40 @@ istat-geo-sync sync-database \
 ### Programmatic Usage
 
 ```typescript
-import { fetchIstatWorkbook, buildDataset, exportData, syncDataset } from 'istat-geo-sync';
+import {
+  fetchIstatWorkbook,
+  buildDataset,
+  exportData,
+  syncDataset,
+} from "istat-geo-sync";
 
 // Fetch and build dataset
 const { workbook, lastModified } = await fetchIstatWorkbook();
 const dataset = buildDataset(workbook, { sourceLastModified: lastModified });
 
 // Export to files
-await exportData(dataset, 'municipalities', 'json', './output', '{entity}.{ext}');
+await exportData(
+  dataset,
+  "municipalities",
+  "json",
+  "./output",
+  "{entity}.{ext}"
+);
 
 // Or sync to database
-await syncDataset({
-  database: 'postgres',
-  config: {
-    host: 'localhost',
-    port: 5432,
-    user: 'postgres',
-    password: 'yourpassword',
-    database: 'istat_geo'
-  }
-}, dataset);
+await syncDataset(
+  {
+    database: "postgres",
+    config: {
+      host: "localhost",
+      port: 5432,
+      user: "postgres",
+      password: "yourpassword",
+      database: "istat_geo",
+    },
+  },
+  dataset
+);
 ```
 
 ## CLI Commands
@@ -102,11 +120,13 @@ istat-geo-sync export <entity> --format <format> [options]
 **Entities**: `regions`, `provinces`, `municipalities`, `legend`, `notes`, `all`
 
 **Options**:
+
 - `-f, --format <format>`: Output format (`csv` or `json`) - **required**
 - `-o, --out <dir>`: Output directory (default: `out`)
 - `--filename <pattern>`: Filename pattern with placeholders: `{entity}`, `{date}`, `{ext}` (default: `{date}-{entity}.{ext}`)
 
 **Examples**:
+
 ```bash
 # Export municipalities as JSON
 istat-geo-sync export municipalities --format json
@@ -127,6 +147,7 @@ istat-geo-sync sync-database [options]
 ```
 
 **Options**:
+
 - `--type <type>`: Database type: `mysql`, `postgres`, or `sqlite` (default: `mysql`)
 - `--database <name>`: Database name (or file path for SQLite) - **required**
 - `--host <host>`: Database host (for MySQL/PostgreSQL)
@@ -137,6 +158,7 @@ istat-geo-sync sync-database [options]
 - `--force`: Force sync even if remote dataset hasn't changed
 
 **Examples**:
+
 ```bash
 # Sync to MySQL
 istat-geo-sync sync-database \
@@ -173,6 +195,7 @@ You can use a JSON configuration file instead of CLI arguments:
 ```
 
 Use it with:
+
 ```bash
 istat-geo-sync sync-database --config ./my-config.json
 ```
@@ -198,6 +221,7 @@ const dataset = buildDataset(workbook, { sourceLastModified: lastModified });
 ```
 
 **Parameters**:
+
 - `workbook`: XLSX WorkBook object
 - `options.sourceLastModified`: Optional last modified timestamp
 
@@ -208,7 +232,13 @@ const dataset = buildDataset(workbook, { sourceLastModified: lastModified });
 Exports dataset to files.
 
 ```typescript
-await exportData(dataset, 'municipalities', 'json', './output', '{entity}.{ext}');
+await exportData(
+  dataset,
+  "municipalities",
+  "json",
+  "./output",
+  "{entity}.{ext}"
+);
 ```
 
 ### `syncDataset(config, dataset)`
@@ -216,26 +246,35 @@ await exportData(dataset, 'municipalities', 'json', './output', '{entity}.{ext}'
 Syncs dataset to a database.
 
 ```typescript
-await syncDataset({
-  database: 'postgres',
-  config: { host: 'localhost', port: 5432, user: 'postgres', password: 'pass', database: 'db' },
-  force: false
-}, dataset);
+await syncDataset(
+  {
+    database: "postgres",
+    config: {
+      host: "localhost",
+      port: 5432,
+      user: "postgres",
+      password: "pass",
+      database: "db",
+    },
+    force: false,
+  },
+  dataset
+);
 ```
 
 ### Types
 
 ```typescript
-import type { 
-  Region, 
-  Province, 
-  Municipality, 
+import type {
+  Region,
+  Province,
+  Municipality,
   Dataset,
   FieldLegend,
   NoteMap,
   NoteEntry,
-  DatabaseType 
-} from 'istat-geo-sync';
+  DatabaseType,
+} from "istat-geo-sync";
 ```
 
 ## Development Setup
@@ -334,4 +373,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
-
