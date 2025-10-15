@@ -1,7 +1,9 @@
 # istat-geo-sync
 
 [![npm version](https://badge.fury.io/js/istat-geo-sync.svg)](https://www.npmjs.com/package/istat-geo-sync)
+[![CI](https://github.com/marouanouadi1/istat-geo-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/marouanouadi1/istat-geo-sync/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.5.0-brightgreen)](https://nodejs.org/)
 
 A TypeScript CLI and library that downloads the official ISTAT "Elenco dei comuni italiani" dataset, normalizes Regions/Provinces/Municipalities, and exports to CSV/JSON and/or syncs into your database (PostgreSQL/MySQL/SQLite). Designed to be re-usable across projects and easy to keep in sync with new ISTAT releases.
 
