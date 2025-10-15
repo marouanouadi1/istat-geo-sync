@@ -1,6 +1,6 @@
 {
   "name": "istat-geo-sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Sync/export ISTAT geographic datasets (Regions/Provinces/Municipalities)",
   "keywords": [
     "istat",
