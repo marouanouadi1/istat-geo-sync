@@ -21,8 +21,13 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "bin": {
+    "istat-geo-sync": "./dist/command.js"
+  },
   "scripts": {
-    "test": "node --test --import tsx test/*"
+    "test": "node --test --import tsx test/*",
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "publishConfig": {
     "access": "public"

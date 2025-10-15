@@ -11,8 +11,11 @@
     "noUnusedLocals": true, // Report errors on unused local variables.
     "noUnusedParameters": true, // Report errors on unused parameters in functions
     "rootDir": "./src",
-    "resolveJsonModule": true
+    "outDir": "./dist",
+    "resolveJsonModule": true,
+    "noFallthroughCasesInSwitch": true,
+    "useUnknownInCatchVariables": true,
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["dist","node_modules"]
 }
