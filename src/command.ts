@@ -1,3 +1,4 @@
+#!/usr/bin/env -S node --experimental-sqlite
 import { Command, Option, Argument } from "commander";
 import { version } from "../package.json";
 import { buildDataset, fetchIstatWorkbook } from "./istat";

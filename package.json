@@ -10,6 +10,8 @@
     "dataset",
     "municipalities"
   ],
+  "author": "Marouan Ouadi",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/marouanouadi1/istat-geo-sync.git"
@@ -19,15 +21,23 @@
   },
   "homepage": "https://github.com/marouanouadi1/istat-geo-sync#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.5.0"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
     "istat-geo-sync": "./dist/command.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --test --import tsx test/*",
     "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "prepublishOnly": "npm run typecheck && npm run build"
   },
   "publishConfig": {
     "access": "public"

@@ -1,0 +1,31 @@
+# Source files
+src/
+test/
+
+# Configuration files
+tsconfig.json
+eslint.config.mts
+compose.yml
+config-example.json
+istat-geo-sync.config.json
+
+# Development files
+.git
+.gitignore
+node_modules/
+*.log
+
+# Test files
+*.test.ts
+*.test.js
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
