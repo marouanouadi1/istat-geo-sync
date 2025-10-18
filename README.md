@@ -5,52 +5,44 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.5.0-brightgreen)](https://nodejs.org/)
 
-A TypeScript CLI and library that downloads the official ISTAT "Elenco dei comuni italiani" dataset, normalizes Regions/Provinces/Municipalities, and exports to CSV/JSON and/or syncs into your database (PostgreSQL/MySQL/SQLite). Designed to be re-usable across projects and easy to keep in sync with new ISTAT releases.
+Download and sync official ISTAT geographic data (Regions, Provinces, Municipalities) to your database or export to CSV/JSON. Simple, fast, and always up-to-date with the latest ISTAT releases.
 
 ## Features
 
-- 📦 **CLI tool** for quick exports and database synchronization
-- 📚 **Programmatic API** for integration into your applications
+- 🇮🇹 **Official ISTAT data**: Italian Regions, Provinces, and Municipalities always up-to-date
 - 🗄️ **Multi-database support**: PostgreSQL, MySQL, SQLite
-- 📊 **Multiple export formats**: CSV, JSON
-- 🇮🇹 **Complete Italian geographic data**: Regions, Provinces, Municipalities
-- 📝 **Includes metadata**: Field legend and notes from ISTAT
-- 🔄 **Smart sync**: Only updates when source data changes (unless forced)
-- 🐳 **Docker ready**: Includes Docker Compose setup for development
+- 📊 **Flexible export**: CSV or JSON formats
+- 🔄 **Smart sync**: Updates only when ISTAT data changes
+- ⚡ **Easy to use**: Simple and intuitive CLI commands
+- 🐳 **Docker ready**: Quick setup with Docker Compose
 
 ## Installation
-
-### Global installation (CLI)
 
 ```bash
 npm install -g istat-geo-sync
 ```
 
-### Local installation (as a library)
-
-```bash
-npm install istat-geo-sync
-```
-
-**Requirements**: Node.js >= 22.5.0 (required for native SQLite support)
+**Requirements**: Node.js >= 22.5.0
 
 ## Quick Start
 
-### CLI Usage
+### Export data to JSON or CSV
 
-Export municipalities to JSON:
+Export all municipalities to JSON:
 
 ```bash
 istat-geo-sync export municipalities --format json --out ./data
 ```
 
-Export all entities to CSV:
+Export regions, provinces, and municipalities to CSV:
 
 ```bash
-istat-geo-sync export all --format csv --out ./exports
+istat-geo-sync export all --format csv --out ./export
 ```
 
-Sync to PostgreSQL:
+### Sync to database
+
+**PostgreSQL:**
 
 ```bash
 istat-geo-sync sync-database \
@@ -62,7 +54,19 @@ istat-geo-sync sync-database \
   --database istat_geo
 ```
 
-Sync to SQLite:
+**MySQL:**
+
+```bash
+istat-geo-sync sync-database \
+  --type mysql \
+  --host localhost \
+  --port 3306 \
+  --user root \
+  --password yourpassword \
+  --database istat_geo
+```
+
+**SQLite:**
 
 ```bash
 istat-geo-sync sync-database \
@@ -70,96 +74,72 @@ istat-geo-sync sync-database \
   --database ./data/istat.db
 ```
 
-### Programmatic Usage
+## Complete Guide
 
-```typescript
-import {
-  fetchIstatWorkbook,
-  buildDataset,
-  exportData,
-  syncDataset,
-} from "istat-geo-sync";
+### `export` command
 
-// Fetch and build dataset
-const { workbook, lastModified } = await fetchIstatWorkbook();
-const dataset = buildDataset(workbook, { sourceLastModified: lastModified });
+Export ISTAT geographic data to CSV or JSON files.
 
-// Export to files
-await exportData(
-  dataset,
-  "municipalities",
-  "json",
-  "./output",
-  "{entity}.{ext}"
-);
-
-// Or sync to database
-await syncDataset(
-  {
-    database: "postgres",
-    config: {
-      host: "localhost",
-      port: 5432,
-      user: "postgres",
-      password: "yourpassword",
-      database: "istat_geo",
-    },
-  },
-  dataset
-);
-```
-
-## CLI Commands
-
-### `export`
-
-Export normalized datasets to files.
+**Syntax:**
 
 ```bash
 istat-geo-sync export <entity> --format <format> [options]
 ```
 
-**Entities**: `regions`, `provinces`, `municipalities`, `legend`, `notes`, `all`
+**Available entities:**
 
-**Options**:
+- `regions` - Italian regions
+- `provinces` - Provinces and metropolitan cities
+- `municipalities` - Italian municipalities
+- `legend` - Field legend
+- `notes` - ISTAT notes
+- `all` - All of the above
 
-- `-f, --format <format>`: Output format (`csv` or `json`) - **required**
-- `-o, --out <dir>`: Output directory (default: `out`)
-- `--filename <pattern>`: Filename pattern with placeholders: `{entity}`, `{date}`, `{ext}` (default: `{date}-{entity}.{ext}`)
+**Options:**
 
-**Examples**:
+| Option         | Description                                          | Default                 |
+| -------------- | ---------------------------------------------------- | ----------------------- |
+| `-f, --format` | Output format: `csv` or `json`                       | **required**            |
+| `-o, --out`    | Output directory                                     | `out`                   |
+| `--filename`   | Filename pattern (use `{entity}`, `{date}`, `{ext}`) | `{date}-{entity}.{ext}` |
+
+**Examples:**
 
 ```bash
-# Export municipalities as JSON
+# Export only municipalities to JSON
 istat-geo-sync export municipalities --format json
 
-# Export all entities as CSV to custom directory
-istat-geo-sync export all --format csv --out ./data
+# Export everything to CSV in a specific folder
+istat-geo-sync export all --format csv --out ./istat-data
 
-# Custom filename pattern
-istat-geo-sync export provinces --format json --filename "province-{date}.{ext}"
+# Export provinces with custom filename
+istat-geo-sync export provinces --format json --filename "provinces-{date}.{ext}"
 ```
 
-### `sync-database`
+### `sync-database` command
 
-Sync the dataset to a database with automatic upsert logic.
+Sync ISTAT data directly to your database.
+
+**Syntax:**
 
 ```bash
 istat-geo-sync sync-database [options]
 ```
 
-**Options**:
+**Options:**
 
-- `--type <type>`: Database type: `mysql`, `postgres`, or `sqlite` (default: `mysql`)
-- `--database <name>`: Database name (or file path for SQLite) - **required**
-- `--host <host>`: Database host (for MySQL/PostgreSQL)
-- `--port <number>`: Database port
-- `--user <user>`: Database user
-- `--password <password>`: Database password
-- `--config <path>`: Path to JSON config file (default: `istat-geo-sync.config.json`)
-- `--force`: Force sync even if remote dataset hasn't changed
+| Option       | Description                                  | Default                      |
+| ------------ | -------------------------------------------- | ---------------------------- |
+| `--type`     | Database type: `mysql`, `postgres`, `sqlite` | `mysql`                      |
+| `--database` | Database name (or file path for SQLite)      | **required**                 |
+| `--host`     | Database host (MySQL/PostgreSQL)             | -                            |
+| `--port`     | Database port                                | -                            |
+| `--user`     | Database username                            | -                            |
+| `--password` | Database password                            | -                            |
+| `--config`   | Path to JSON config file                     | `istat-geo-sync.config.json` |
+| `--force`    | Force sync even if data hasn't changed       | `false`                      |
 
-**Examples**:
+**Examples:**
 
 ```bash
 # Sync to MySQL
@@ -170,7 +150,7 @@ istat-geo-sync sync-database \
   --password secret \
   --database istat_geo
 
-# Sync to SQLite
+# Sync to SQLite (simpler!)
 istat-geo-sync sync-database \
   --type sqlite \
   --database ./istat.db
@@ -181,7 +161,9 @@ istat-geo-sync sync-database --type postgres --force
 
 ## Configuration File
 
-You can use a JSON configuration file instead of CLI arguments:
+You can use a JSON configuration file to avoid typing all parameters every time:
+
+**Create `istat-geo-sync.config.json`:**
 
 ```json
 {
@@ -196,171 +178,126 @@ You can use a JSON configuration file instead of CLI arguments:
 }
 ```
 
-Use it with:
+**Use the configuration file:**
 
 ```bash
+# Use default configuration (istat-geo-sync.config.json)
+istat-geo-sync sync-database
+
+# Specify a custom configuration file
 istat-geo-sync sync-database --config ./my-config.json
 ```
 
-## API Reference
+## Local Testing with Docker
 
-### `fetchIstatWorkbook()`
-
-Fetches the ISTAT workbook from the official source.
-
-```typescript
-const { workbook, lastModified } = await fetchIstatWorkbook();
-```
-
-**Returns**: `Promise<{ workbook: WorkBook, lastModified: string | null }>`
-
-### `buildDataset(workbook, options)`
-
-Builds a normalized dataset from the ISTAT workbook.
-
-```typescript
-const dataset = buildDataset(workbook, { sourceLastModified: lastModified });
-```
-
-**Parameters**:
-
-- `workbook`: XLSX WorkBook object
-- `options.sourceLastModified`: Optional last modified timestamp
-
-**Returns**: `Dataset` object containing regions, provinces, municipalities, legend, and notes
-
-### `exportData(dataset, entity, format, outDir, filenamePattern)`
-
-Exports dataset to files.
-
-```typescript
-await exportData(
-  dataset,
-  "municipalities",
-  "json",
-  "./output",
-  "{entity}.{ext}"
-);
-```
-
-### `syncDataset(config, dataset)`
-
-Syncs dataset to a database.
-
-```typescript
-await syncDataset(
-  {
-    database: "postgres",
-    config: {
-      host: "localhost",
-      port: 5432,
-      user: "postgres",
-      password: "pass",
-      database: "db",
-    },
-    force: false,
-  },
-  dataset
-);
-```
-
-### Types
-
-```typescript
-import type {
-  Region,
-  Province,
-  Municipality,
-  Dataset,
-  FieldLegend,
-  NoteMap,
-  NoteEntry,
-  DatabaseType,
-} from "istat-geo-sync";
-```
-
-## Development Setup
-
-### Quick start with Docker Compose
-
-To keep everything self-contained you can run the CLI and the optional databases entirely through Docker Compose.
+If you want to test the tool with local databases without installing anything on your system:
 
 ```bash
+# Start PostgreSQL and MySQL in containers
 docker compose up -d
+
+# This starts:
+# - PostgreSQL on localhost:5432 (user: postgres, password: postgres, database: istat_geo)
+# - MySQL on localhost:3306 (user: root, password: mysql, database: istat_geo)
 ```
 
-The command above starts:
-
-- **CLI** based on the official `node:latest` image (Node.js 22 at the time of writing) with the project mounted at `/app`.
-- **PostgreSQL** on `localhost:5432` with credentials `postgres` / `postgres` and a pre-created `istat_geo` database.
-- **MySQL** on `localhost:3306` with credentials `istat` / `istat` (or the `root` user with password `mysql`) and a pre-created `istat_geo` database.
-
-Update your local configuration (for example `config.json`) with these connection details whenever you want the CLI to talk to the containers.
-
-Inside the running CLI container you can install dependencies and run the TypeScript commands without touching your host machine:
+Now you can sync data to these test databases:
 
 ```bash
-# Install dependencies (stored in the named node_modules volume)
-docker compose exec cli npm install
+# Test with PostgreSQL
+istat-geo-sync sync-database \
+  --type postgres \
+  --host localhost \
+  --port 5432 \
+  --user postgres \
+  --password postgres \
+  --database istat_geo
 
-# Run the CLI (replace arguments as needed)
-docker compose exec cli npx tsx src/command.ts --help
-
-# Drop into a shell if you prefer an interactive session
-docker compose exec cli bash
+# Test with MySQL
+istat-geo-sync sync-database \
+  --type mysql \
+  --host localhost \
+  --port 3306 \
+  --user root \
+  --password mysql \
+  --database istat_geo
 ```
 
-When you are done, stop the services with:
+When you're done:
 
 ```bash
 docker compose down
 ```
 
-## Database Schema
+## Database Structure
 
-The sync commands create the following tables:
+The `sync-database` command automatically creates these tables in your database:
 
-- `regions`: Italian regions with NUTS codes
-- `provinces`: Provinces/Metropolitan cities (UTS)
-- `municipalities`: All Italian municipalities (comuni)
-- `legend`: Field metadata and descriptions
-- `notes`: ISTAT notes and annotations
-- `sync_metadata`: Tracks last sync timestamps
+| Table            | Content                                 |
+| ---------------- | --------------------------------------- |
+| `regions`        | Italian regions with NUTS codes         |
+| `provinces`      | Provinces and metropolitan cities (UTS) |
+| `municipalities` | All Italian municipalities              |
+| `legend`         | Field metadata descriptions             |
+| `notes`          | ISTAT notes and annotations             |
+| `sync_metadata`  | Last sync timestamps tracking           |
 
-Schema files are available in `src/db/{mysql,postgres,sqlite}/schema.sql`.
+**You don't need to create tables manually** - the tool does it automatically!
 
-## Data Details
+## FAQ
 
-### SQLite support
+### Which database should I use?
 
-You can also sync the dataset into a local SQLite database file by running the CLI with `--type sqlite`. The `--database` option (or the corresponding config entry) should point to the SQLite file path. The file is created automatically if it does not exist, and the command reuses the same schema used for MySQL/PostgreSQL.
+- **SQLite**: The simplest! Perfect for small projects or testing. No installation needed, just specify the file path.
+- **PostgreSQL/MySQL**: For production applications or high traffic scenarios.
 
-### Legend and notes exports
+### How often is ISTAT data updated?
 
-Both the file exporter and the SQL sync commands now include the ISTAT legend and notes sheets. Use `legend` or `notes` with the `export` command (or `all` to include everything). Notes are exported as a keyed JSON object or as a CSV table with `note_id` and `text` columns, while legend rows include field metadata such as the description, year, and source.
+ISTAT periodically updates the list of Italian municipalities. The tool automatically checks for changes and syncs only when necessary. You can force an update with the `--force` option.
 
-### Data source choice (XLSX vs CSV)
+### Is data overwritten or updated?
 
-By default this project uses the official **XLSX** file rather than the CSV. Parsing XLSX is **~40× slower** in my tests (median **1,027.98 ms** vs **24.70 ms**; **+4062%** parsing-only, 7 runs), but the total runtime stays reasonable for this dataset and XLSX provides **additional sheets** (notes, legend) that I use to enrich/validate the data. Given that the “Comuni” dataset size is relatively stable, I prefer the richer XLSX source over the faster CSV.
+The tool uses **smart upsert logic**: it updates existing records and inserts new ones, maintaining your data integrity.
 
-<details>
-<summary><strong>Benchmark details (parsing-only)</strong></summary>
+### How do I get only municipalities from a specific region?
 
-| Format | Runs | Median ms | Mean ms | Stdev ms |
-| -----: | ---: | --------: | ------: | -------: |
-|    CSV |    7 |     24.70 |   25.21 |     2.76 |
-|   XLSX |    7 |   1027.98 | 1057.24 |    66.80 |
+After syncing data to your database, you can run normal SQL queries. For example:
 
-- XLSX vs CSV (median): **+4062.0%** slower
-- XLSX vs CSV (mean): **+4093.6%** slower
+```sql
+-- Municipalities in Lombardy
+SELECT m.* FROM municipalities m
+JOIN regions r ON m.region_code = r.code
+WHERE r.name = 'Lombardia';
+```
 
-_Note: benchmark isolates **parsing/manipulation only** (network excluded)._
+### Can I automate synchronization?
 
-</details>
+Yes! You can create a cronjob or scheduled task to run the command periodically:
+
+```bash
+# Example cronjob (daily at 3 AM)
+0 3 * * * /usr/local/bin/istat-geo-sync sync-database --config /path/to/config.json
+```
+
+## For Developers
+
+If you want to integrate this tool into your code:
+
+```bash
+npm install istat-geo-sync
+```
+
+```typescript
+import { fetchIstatWorkbook, buildDataset, syncDataset } from "istat-geo-sync";
+
+// Your code here...
+```
+
+For more details on the programmatic API, check the source code or open an issue on GitHub.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Feel free to open a Pull Request or report issues on GitHub.
 
 ## License
 
@@ -368,10 +305,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Links
 
-- [npm package](https://www.npmjs.com/package/istat-geo-sync)
-- [GitHub repository](https://github.com/marouanouadi1/istat-geo-sync)
-- [ISTAT Official Data Source](https://www.istat.it/it/archivio/6789)
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
+- 📦 [npm package](https://www.npmjs.com/package/istat-geo-sync)
+- 💻 [GitHub repository](https://github.com/marouanouadi1/istat-geo-sync)
+- 📊 [Official ISTAT data source](https://www.istat.it/it/archivio/6789)
+- 📝 [Changelog](CHANGELOG.md)
