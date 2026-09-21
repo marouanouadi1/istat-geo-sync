@@ -45,7 +45,7 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "@eslint/js": "^10.0.1",
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.23.1",
     "@types/xlsx": "^0.0.36",
     "eslint": "^10.9.1",
     "globals": "^17.11.0",
@@ -56,7 +56,7 @@
   "dependencies": {
     "commander": "^15.0.0",
     "mysql2": "^3.23.2",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
     "xlsx": "^0.18.5"
   }
 }
