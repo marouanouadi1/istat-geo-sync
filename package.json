@@ -43,20 +43,20 @@
     "access": "public"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.6.1",
     "@eslint/js": "^10.0.1",
     "@types/pg": "^8.23.1",
     "@types/xlsx": "^0.0.36",
+    "globals": "^17.12.0",
     "eslint": "^10.9.1",
-    "globals": "^17.11.0",
     "tsx": "^4.23.13",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.70.0"
   },
   "dependencies": {
     "commander": "^15.0.0",
-    "mysql2": "^3.23.2",
     "pg": "^8.23.0",
+    "mysql2": "^3.24.3",
     "xlsx": "^0.18.5"
   }
 }
