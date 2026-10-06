@@ -43,7 +43,7 @@
     "access": "public"
   },
   "devDependencies": {
-    "@types/node": "^26.6.2",
+    "@types/node": "^26.6.4",
     "@eslint/js": "^10.0.1",
     "@types/pg": "^8.23.1",
     "@types/xlsx": "^0.0.36",
@@ -55,8 +55,8 @@
   },
   "dependencies": {
     "commander": "^15.0.0",
-    "pg": "^8.23.0",
-    "mysql2": "^3.24.4",
+    "pg": "^8.23.1",
+    "mysql2": "^3.24.5",
     "xlsx": "^0.18.5"
   }
 }
