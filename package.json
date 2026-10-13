@@ -43,7 +43,7 @@
     "access": "public"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@eslint/js": "^10.0.1",
     "@types/pg": "^8.23.1",
     "@types/xlsx": "^0.0.36",
@@ -51,7 +51,7 @@
     "tsx": "^4.23.15",
     "eslint": "^10.11.0",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.71.0"
+    "typescript-eslint": "^8.71.1"
   },
   "dependencies": {
     "commander": "^15.0.0",
